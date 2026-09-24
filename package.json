@@ -1,6 +1,6 @@
 {
   "name": "brandspace-forge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "packageManager": "npm@11.6.0",
   "engines": { "node": ">=22.0.0" },
@@ -15,7 +15,11 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "format:check": "prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:generate": "npm run db:generate --workspace=@forge/database",
+    "db:migrate": "npm run db:migrate --workspace=@forge/database",
+    "db:deploy": "npm run db:deploy --workspace=@forge/database",
+    "db:studio": "npm run db:studio --workspace=@forge/database"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

@@ -19,7 +19,7 @@ architecture. Boundaries can later be extracted only when scale justifies it.
 
 ## Source of truth
 
-PostgreSQL will be the source of truth for application state beginning in Phase 2/3. Phase 1 does not require Docker; managed PostgreSQL can be used directly when persistence is introduced.
+PostgreSQL is the source of truth for application state beginning in Phase 2. Managed PostgreSQL is used directly; Docker is not required.
 
 Google Drive is the canonical binary media store. The database will store Drive file
 IDs, revisions/checksums where available, ownership/client references, analysis state
@@ -27,6 +27,13 @@ and derived metadata. Drive is not the workflow database.
 
 Redis, when introduced, is ephemeral infrastructure for queues, locks and short-lived coordination and may be consumed as a managed service.
 It is never authoritative application state.
+
+## Identity and tenancy
+
+Better Auth owns authentication/session concerns. Brand Space business authorization
+is modeled separately: User -> Membership -> Organization -> Client. Server-side
+membership checks are mandatory before organization/client access. Client-specific
+creative configuration lives in BrandProfile.
 
 ## Media storage
 

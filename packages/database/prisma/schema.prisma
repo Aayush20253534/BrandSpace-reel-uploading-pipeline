@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  CONTENT_MANAGER
+  EDITOR
+  REVIEWER
+  ANALYST
+  VIEWER
+}
+
+enum ClientStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum ApprovalMode {
+  REQUIRED
+  OPTIONAL
+  AUTO
+}
+
+model User {
+  id            String       @id @default(cuid())
+  name          String
+  email         String       @unique
+  emailVerified Boolean      @default(false)
+  image         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  memberships   Membership[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+  clients     Client[]
+}
+
+model Membership {
+  id             String         @id @default(cuid())
+  organizationId String
+  userId         String
+  role           MembershipRole
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model Client {
+  id                String         @id @default(cuid())
+  organizationId    String
+  name              String
+  slug              String
+  status            ClientStatus   @default(ACTIVE)
+  timezone          String         @default("Asia/Kolkata")
+  driveFolderId     String?
+  approvalMode      ApprovalMode   @default(REQUIRED)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brandProfile      BrandProfile?
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+}
+
+model BrandProfile {
+  id                String   @id @default(cuid())
+  clientId          String   @unique
+  positioning       String?
+  targetAudience    String?
+  audiencePainPoints String[]
+  contentPillars    String[]
+  tone              String[]
+  preferredHooks    String[]
+  forbiddenTopics   String[]
+  preferredWords    String[]
+  bannedWords       String[]
+  ctaRules          Json?
+  captionStyle      Json?
+  hashtagPolicy     Json?
+  subtitleStyle     Json?
+  brandColors       String[]
+  logoDriveFileId   String?
+  fontRules         Json?
+  musicPolicy       Json?
+  reelStyle         Json?
+  postingPolicy     Json?
+  complianceRules   Json?
+  goodExamples      String[]
+  badExamples       String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}

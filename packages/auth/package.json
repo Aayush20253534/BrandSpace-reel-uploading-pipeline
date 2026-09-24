@@ -1,0 +1,20 @@
+{
+  "name": "@forge/auth",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@better-auth/prisma-adapter": "^1.4.0",
+    "@forge/config": "*",
+    "@forge/database": "*",
+    "better-auth": "^1.4.0"
+  },
+  "devDependencies": { "typescript": "^5.9.2" }
+}

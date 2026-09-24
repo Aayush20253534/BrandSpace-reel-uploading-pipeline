@@ -1,0 +1,17 @@
+{
+  "name": "@forge/domain",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@forge/database": "*"
+  },
+  "devDependencies": { "typescript": "^5.9.2" }
+}
