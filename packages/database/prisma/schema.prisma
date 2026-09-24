@@ -29,6 +29,101 @@ enum ApprovalMode {
   AUTO
 }
 
+enum MediaAssetKind {
+  RAW_VIDEO
+  RAW_IMAGE
+  AUDIO
+  BRAND_ASSET
+  GENERATED_REEL
+  THUMBNAIL
+  SUBTITLE
+  OTHER
+}
+
+enum MediaAssetState {
+  DISCOVERED
+  READY
+  ANALYZING
+  ANALYZED
+  INVALID
+  ARCHIVED
+}
+
+enum AnalysisState {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum ReelProjectState {
+  DRAFT
+  PLANNED
+  RENDERING
+  QA
+  AWAITING_APPROVAL
+  REVISION_REQUESTED
+  APPROVED
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  REJECTED
+  RENDER_FAILED
+  PUBLISH_FAILED
+  CANCELLED
+}
+
+enum JobState {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  NEEDS_ATTENTION
+}
+
+enum QaDecision {
+  PENDING
+  PASS
+  FAIL
+  NEEDS_REVISION
+}
+
+enum ApprovalDecision {
+  PENDING
+  APPROVED
+  REJECTED
+  REVISION_REQUESTED
+}
+
+enum PublishingState {
+  SCHEDULED
+  DISPATCHED
+  PROCESSING
+  PUBLISHED
+  RETRY_WAIT
+  FAILED
+  NEEDS_ATTENTION
+  CANCELLED
+}
+
+enum ActorType {
+  USER
+  SYSTEM
+  AI
+  MCP_AGENT
+  WORKER
+}
+
+enum UsageKind {
+  AI
+  TRANSCRIPTION
+  RENDER
+  STORAGE
+  PUBLISHING
+  OTHER
+}
+
 model User {
   id            String       @id @default(cuid())
   name          String
@@ -95,6 +190,7 @@ model Organization {
   updatedAt   DateTime     @updatedAt
   memberships Membership[]
   clients     Client[]
+  auditEvents AuditEvent[]
 }
 
 model Membership {
@@ -124,6 +220,11 @@ model Client {
   updatedAt         DateTime       @updatedAt
   organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   brandProfile      BrandProfile?
+  mediaAssets       MediaAsset[]
+  reelProjects      ReelProject[]
+  auditEvents       AuditEvent[]
+  aiProvenance      AiProvenance[]
+  usageLedger       UsageLedger[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -157,4 +258,263 @@ model BrandProfile {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+
+model MediaAsset {
+  id              String          @id @default(cuid())
+  clientId        String
+  kind            MediaAssetKind
+  state           MediaAssetState @default(DISCOVERED)
+  driveFileId     String
+  driveRevisionId String?
+  parentDriveId   String?
+  name            String
+  mimeType        String
+  sizeBytes       BigInt?
+  checksum        String?
+  durationMs      Int?
+  width           Int?
+  height          Int?
+  capturedAt      DateTime?
+  usageExpiresAt  DateTime?
+  rightsMetadata  Json?
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  analyses        MediaAnalysis[]
+  reelSources     ReelSource[]
+
+  @@unique([clientId, driveFileId])
+  @@index([clientId, state, kind])
+  @@index([clientId, checksum])
+}
+
+model MediaAnalysis {
+  id             String        @id @default(cuid())
+  mediaAssetId   String
+  state          AnalysisState @default(PENDING)
+  summary        String?
+  transcript     String?
+  language       String?
+  tags           String[]
+  subjects       String[]
+  scenes         Json?
+  usableSegments Json?
+  quality        Json?
+  visual         Json?
+  embeddingRef   String?
+  errorCode      String?
+  errorMessage   String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  mediaAsset     MediaAsset    @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@index([mediaAssetId, state])
+}
+
+model ReelProject {
+  id            String           @id @default(cuid())
+  clientId      String
+  title         String
+  objective     String?
+  campaignKey   String?
+  state         ReelProjectState @default(DRAFT)
+  activeVersion Int              @default(0)
+  createdById   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  client        Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  versions      ReelVersion[]
+  approvals     Approval[]
+  publishingJobs PublishingJob[]
+
+  @@index([clientId, state, createdAt])
+  @@index([clientId, campaignKey])
+}
+
+model ReelVersion {
+  id                 String       @id @default(cuid())
+  reelProjectId      String
+  version            Int
+  blueprint          Json
+  caption            String?
+  cta                String?
+  renderedAssetId    String?
+  previewAssetId     String?
+  changeSummary      String?
+  createdByActorType ActorType    @default(SYSTEM)
+  createdByActorId   String?
+  createdAt          DateTime     @default(now())
+  reelProject        ReelProject  @relation(fields: [reelProjectId], references: [id], onDelete: Cascade)
+  sources            ReelSource[]
+  renderJobs         RenderJob[]
+  qaReviews          QaReview[]
+  publishingJobs     PublishingJob[]
+
+  @@unique([reelProjectId, version])
+  @@index([reelProjectId, createdAt])
+}
+
+model ReelSource {
+  id            String      @id @default(cuid())
+  reelVersionId String
+  mediaAssetId  String
+  order         Int
+  inMs          Int?
+  outMs         Int?
+  role          String?
+  reelVersion   ReelVersion @relation(fields: [reelVersionId], references: [id], onDelete: Cascade)
+  mediaAsset    MediaAsset  @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+
+  @@unique([reelVersionId, mediaAssetId, order])
+  @@index([mediaAssetId])
+}
+
+model RenderJob {
+  id            String      @id @default(cuid())
+  reelVersionId String
+  state         JobState    @default(PENDING)
+  attemptCount  Int         @default(0)
+  input         Json?
+  output        Json?
+  errorCode     String?
+  errorMessage  String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  reelVersion   ReelVersion @relation(fields: [reelVersionId], references: [id], onDelete: Cascade)
+
+  @@index([state, createdAt])
+  @@index([reelVersionId, createdAt])
+}
+
+model QaReview {
+  id            String      @id @default(cuid())
+  reelVersionId String
+  technical     Json?
+  creative      Json?
+  decision      QaDecision  @default(PENDING)
+  summary       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  reelVersion   ReelVersion @relation(fields: [reelVersionId], references: [id], onDelete: Cascade)
+
+  @@index([reelVersionId, decision])
+}
+
+model Approval {
+  id            String           @id @default(cuid())
+  reelProjectId String
+  decision      ApprovalDecision @default(PENDING)
+  requestedById String?
+  decidedById   String?
+  note          String?
+  requestedAt   DateTime         @default(now())
+  decidedAt     DateTime?
+  reelProject   ReelProject      @relation(fields: [reelProjectId], references: [id], onDelete: Cascade)
+
+  @@index([reelProjectId, decision])
+}
+
+model PublishingJob {
+  id                  String          @id @default(cuid())
+  reelProjectId       String
+  reelVersionId       String
+  socialAccountId     String
+  scheduledAt         DateTime
+  idempotencyKey      String          @unique
+  state               PublishingState @default(SCHEDULED)
+  attemptCount        Int             @default(0)
+  externalContainerId String?
+  externalMediaId     String?
+  lastErrorCode       String?
+  lastErrorMessage    String?
+  lockedAt            DateTime?
+  publishedAt         DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  reelProject         ReelProject     @relation(fields: [reelProjectId], references: [id], onDelete: Cascade)
+  reelVersion         ReelVersion     @relation(fields: [reelVersionId], references: [id], onDelete: Restrict)
+  analyticsSnapshots  ReelAnalyticsSnapshot[]
+
+  @@index([state, scheduledAt])
+  @@index([reelProjectId, createdAt])
+  @@index([socialAccountId, scheduledAt])
+}
+
+model ReelAnalyticsSnapshot {
+  id              String        @id @default(cuid())
+  publishingJobId String
+  capturedAt      DateTime
+  metrics         Json
+  publishingJob   PublishingJob @relation(fields: [publishingJobId], references: [id], onDelete: Cascade)
+
+  @@unique([publishingJobId, capturedAt])
+  @@index([capturedAt])
+}
+
+model AuditEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  clientId       String?
+  actorType      ActorType
+  actorId        String?
+  action         String
+  entityType     String
+  entityId       String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([clientId, createdAt])
+  @@index([entityType, entityId, createdAt])
+}
+
+model AiProvenance {
+  id               String    @id @default(cuid())
+  clientId         String
+  reelProjectId    String?
+  operation        String
+  provider         String
+  model            String
+  promptVersion    String?
+  inputReference   Json?
+  structuredOutput Json?
+  confidence       Decimal?  @db.Decimal(5, 4)
+  latencyMs        Int?
+  costUsd          Decimal?  @db.Decimal(12, 6)
+  createdAt        DateTime  @default(now())
+  client           Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, operation, createdAt])
+  @@index([reelProjectId, createdAt])
+}
+
+model UsageLedger {
+  id            String    @id @default(cuid())
+  clientId      String
+  reelProjectId String?
+  kind          UsageKind
+  provider      String?
+  operation     String
+  model         String?
+  quantity      Decimal?  @db.Decimal(18, 6)
+  unit          String?
+  inputUnits    Int?
+  outputUnits   Int?
+  costUsd       Decimal   @default(0) @db.Decimal(12, 6)
+  metadata      Json?
+  occurredAt    DateTime  @default(now())
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, occurredAt])
+  @@index([reelProjectId, occurredAt])
+  @@index([kind, provider, occurredAt])
 }

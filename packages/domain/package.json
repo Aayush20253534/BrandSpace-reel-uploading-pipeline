@@ -3,7 +3,9 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "build": "tsc --noEmit",
     "lint": "tsc --noEmit",
@@ -13,5 +15,7 @@
   "dependencies": {
     "@forge/database": "*"
   },
-  "devDependencies": { "typescript": "^5.9.2" }
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
 }

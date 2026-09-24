@@ -43,12 +43,12 @@ organization rather than an individual's My Drive.
 Planned hierarchy:
 
 BrandSpace Forge/
-  Clients/
-    <client-id>/
-      Raw/
-      Brand Assets/
-      Generated/
-      Published/
+Clients/
+<client-id>/
+Raw/
+Brand Assets/
+Generated/
+Published/
 
 Folder names are for humans. Stable Drive IDs are the application identifiers.
 
