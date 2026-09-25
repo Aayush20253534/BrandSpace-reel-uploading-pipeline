@@ -4,8 +4,9 @@
 
 Phase 4 — Google Drive Storage & Media Ingestion
 
-Status: storage adapter and persistent Drive sync cursor implemented. Apply the Phase 4
-migration, configure Shared Drive credentials and run verification before live ingestion.
+Status: storage adapter and persistent Drive sync cursor implemented. My Drive OAuth and
+Shared Drive service-account authentication are supported. Run live verification before
+enabling ingestion.
 
 ## Completed
 
@@ -17,6 +18,7 @@ migration, configure Shared Drive credentials and run verification before live i
 - Streaming worker downloads and generated-artifact uploads.
 - Drive revision/checksum/parent/timestamp metadata mapping.
 - Service-account private-key normalization.
+- OAuth refresh-token authentication for personal My Drive development.
 - Shared Drive connectivity/root-folder validation.
 - Persistent per-client Drive synchronization cursor.
 
@@ -30,13 +32,11 @@ migration, configure Shared Drive credentials and run verification before live i
 
 ## Required operator setup
 
-1. Grant the service account access to the BrandSpace Forge Shared Drive.
-2. Set GOOGLE_DRIVE_ID and GOOGLE_DRIVE_ROOT_FOLDER_ID.
-3. Set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.
-4. Run `npm install`.
-5. Run `npm run db:generate`.
-6. Run `npm run db:migrate -- phase4_drive_ingestion`.
-7. Run the full verification suite.
+1. For personal My Drive, configure the Desktop OAuth client ID/secret and root folder ID.
+2. Run `npm run drive:auth` and store the returned refresh token in local `.env`.
+3. Run `npm run drive:check`.
+4. For production Shared Drive, use service-account authentication instead.
+5. Run the full verification suite.
 
 ## Next phase
 

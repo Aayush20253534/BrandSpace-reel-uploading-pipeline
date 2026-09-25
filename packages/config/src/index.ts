@@ -42,9 +42,19 @@ const schema = z.object({
 
   GOOGLE_DRIVE_MODE: z.enum(["my-drive", "shared-drive"]).default("my-drive"),
 
+  GOOGLE_DRIVE_AUTH_MODE: z
+    .enum(["oauth", "service-account"])
+    .default("service-account"),
+
   GOOGLE_DRIVE_ID: optionalString,
 
   GOOGLE_DRIVE_ROOT_FOLDER_ID: optionalString,
+
+  GOOGLE_OAUTH_CLIENT_ID: optionalString,
+
+  GOOGLE_OAUTH_CLIENT_SECRET: optionalString,
+
+  GOOGLE_OAUTH_REFRESH_TOKEN: optionalString,
 
   GOOGLE_SERVICE_ACCOUNT_EMAIL: optionalEmail,
 

@@ -22,7 +22,8 @@
     "db:migrate": "npm run db:migrate --workspace=@forge/database",
     "db:deploy": "npm run db:deploy --workspace=@forge/database",
     "db:studio": "npm run db:studio --workspace=@forge/database",
-    "drive:check": "tsx scripts/drive-check.ts"
+    "drive:check": "tsx scripts/drive-check.ts",
+    "drive:auth": "tsx scripts/drive-auth.ts"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

@@ -35,15 +35,30 @@ export interface MediaStorage {
 }
 
 export type GoogleDriveMode = "my-drive" | "shared-drive";
+export type GoogleDriveAuthMode = "oauth" | "service-account";
 
-export interface GoogleDriveMediaStorageOptions {
+interface GoogleDriveMediaStorageBaseOptions {
   mode: GoogleDriveMode;
   driveId?: string;
   rootFolderId: string;
-  serviceAccountEmail: string;
-  privateKey: string;
   drive?: drive_v3.Drive;
 }
+
+interface GoogleDriveOAuthOptions extends GoogleDriveMediaStorageBaseOptions {
+  authMode: "oauth";
+  oauthClientId: string;
+  oauthClientSecret: string;
+  oauthRefreshToken: string;
+}
+
+interface GoogleDriveServiceAccountOptions extends GoogleDriveMediaStorageBaseOptions {
+  authMode: "service-account";
+  serviceAccountEmail: string;
+  privateKey: string;
+}
+
+export type GoogleDriveMediaStorageOptions =
+  GoogleDriveOAuthOptions | GoogleDriveServiceAccountOptions;
 
 const FILE_FIELDS =
   "id,name,mimeType,size,md5Checksum,version,parents,createdTime,modifiedTime";
@@ -99,6 +114,21 @@ export class GoogleDriveMediaStorage implements MediaStorage {
     this.driveId = options.driveId;
     this.rootFolderId = options.rootFolderId;
 
+    if (options.drive) {
+      this.drive = options.drive;
+      return;
+    }
+
+    if (options.authMode === "oauth") {
+      const auth = new google.auth.OAuth2(
+        options.oauthClientId,
+        options.oauthClientSecret,
+      );
+      auth.setCredentials({ refresh_token: options.oauthRefreshToken });
+      this.drive = google.drive({ version: "v3", auth });
+      return;
+    }
+
     const auth = new google.auth.GoogleAuth({
       credentials: {
         client_email: options.serviceAccountEmail,
@@ -107,7 +137,7 @@ export class GoogleDriveMediaStorage implements MediaStorage {
       scopes: ["https://www.googleapis.com/auth/drive"],
     });
 
-    this.drive = options.drive ?? google.drive({ version: "v3", auth });
+    this.drive = google.drive({ version: "v3", auth });
   }
 
   async verifyConnection() {
