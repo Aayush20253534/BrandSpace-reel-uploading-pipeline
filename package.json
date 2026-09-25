@@ -29,7 +29,8 @@
     "media:analyze": "tsx scripts/media-analyze.ts",
     "media:prepare": "tsx scripts/media-prepare.ts",
     "media:transcribe": "tsx scripts/media-transcribe.ts",
-    "media:scenes": "tsx scripts/media-scenes.ts"
+    "media:scenes": "tsx scripts/media-scenes.ts",
+    "media:understand": "tsx scripts/media-understand.ts"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
