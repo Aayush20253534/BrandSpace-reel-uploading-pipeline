@@ -2,45 +2,44 @@
 
 ## Current phase
 
-Phase 3 — Pipeline Domain Model
+Phase 4 — Google Drive Storage & Media Ingestion
 
-Status: implemented in schema/domain code; apply the Phase 3 Prisma migration and run
-the verification suite before starting Google Drive ingestion.
+Status: storage adapter and persistent Drive sync cursor implemented. Apply the Phase 4
+migration, configure Shared Drive credentials and run verification before live ingestion.
 
 ## Completed
 
 - Phase 1 production foundation.
 - Phase 2 identity, authentication and multi-tenant client domain.
-- MediaAsset and MediaAnalysis persistence with Drive-oriented identifiers.
-- ReelProject, immutable ReelVersion and source-clip lineage.
-- RenderJob, QA review and approval records.
-- PublishingJob with a unique idempotency key and explicit retry/attention states.
-- Time-series ReelAnalyticsSnapshot storage.
-- AuditEvent with organization/client and actor attribution.
-- AI provenance without hidden chain-of-thought storage.
-- UsageLedger for AI, render, storage and provider cost accounting.
-- Deterministic ReelProject transition guard and publishing idempotency-key helper.
-- CI hygiene for Turbo cache and production-build environment validation.
+- Phase 3 pipeline domain model, audit/provenance and usage accounting.
+- Provider-neutral Google Drive storage adapter.
+- Shared Drive-aware paginated file discovery.
+- Streaming worker downloads and generated-artifact uploads.
+- Drive revision/checksum/parent/timestamp metadata mapping.
+- Service-account private-key normalization.
+- Shared Drive connectivity/root-folder validation.
+- Persistent per-client Drive synchronization cursor.
 
 ## Intentionally deferred
 
-- Google Drive authentication/synchronization and actual media ingestion.
+- Media intelligence and transcription.
 - Queue/BullMQ execution.
-- AI provider calls.
 - FFmpeg rendering.
 - Meta/Instagram API integration and SocialAccount credential model.
 - Full operations dashboard.
 
 ## Required operator setup
 
-1. Keep the existing managed PostgreSQL `DATABASE_URL`.
-2. Run `npm run db:generate`.
-3. Run `npm run db:migrate -- phase3_pipeline_domain`.
-4. Run `npm run format`.
-5. Run the full verification suite.
+1. Grant the service account access to the BrandSpace Forge Shared Drive.
+2. Set GOOGLE_DRIVE_ID and GOOGLE_DRIVE_ROOT_FOLDER_ID.
+3. Set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.
+4. Run `npm install`.
+5. Run `npm run db:generate`.
+6. Run `npm run db:migrate -- phase4_drive_ingestion`.
+7. Run the full verification suite.
 
 ## Next phase
 
-Phase 4 — Google Drive Media Storage & Ingestion:
-Shared Drive connection, client-folder mapping, file discovery/change tracking,
-metadata synchronization, safe worker downloads and generated-artifact uploads.
+Phase 5 — Media Intelligence:
+FFprobe metadata extraction, thumbnails and representative frames, audio/transcription,
+scene boundaries and structured AI clip analysis.

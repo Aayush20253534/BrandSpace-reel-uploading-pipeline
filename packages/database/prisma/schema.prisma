@@ -225,6 +225,7 @@ model Client {
   auditEvents       AuditEvent[]
   aiProvenance      AiProvenance[]
   usageLedger       UsageLedger[]
+  driveSyncState    DriveSyncState?
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -517,4 +518,20 @@ model UsageLedger {
   @@index([clientId, occurredAt])
   @@index([reelProjectId, occurredAt])
   @@index([kind, provider, occurredAt])
+}
+
+model DriveSyncState {
+  id               String   @id @default(cuid())
+  clientId         String   @unique
+  startPageToken   String?
+  lastPageToken    String?
+  lastFullSyncAt   DateTime?
+  lastChangeSyncAt DateTime?
+  lastErrorCode    String?
+  lastErrorMessage String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
 }
