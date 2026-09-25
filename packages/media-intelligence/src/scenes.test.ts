@@ -15,8 +15,8 @@ test("parseSceneChangeOutput reads FFmpeg metadata timestamps and scores", () =>
   ].join("\n");
 
   assert.deepEqual(parseSceneChangeOutput(stderr), [
-    { timestampMs: 1250, score: null },
-    { timestampMs: 4750, score: null },
+    { timestampMs: 1250, score: 0.42 },
+    { timestampMs: 4750, score: 0.81 },
   ]);
 });
 

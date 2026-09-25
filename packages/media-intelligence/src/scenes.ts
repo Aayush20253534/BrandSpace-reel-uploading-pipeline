@@ -54,20 +54,30 @@ export function parseSceneChangeOutput(stderr: string): Array<{
 }> {
   const detections: Array<{ timestampMs: number; score: number | null }> = [];
   const lines = stderr.split(/\r?\n/);
+  let pendingIndex: number | null = null;
 
   for (const line of lines) {
     const ptsMatch = line.match(/pts_time:([0-9]+(?:\.[0-9]+)?)/);
-    if (!ptsMatch?.[1]) continue;
+    if (ptsMatch?.[1]) {
+      const seconds = Number(ptsMatch[1]);
+      if (Number.isFinite(seconds) && seconds >= 0) {
+        detections.push({
+          timestampMs: Math.round(seconds * 1000),
+          score: null,
+        });
+        pendingIndex = detections.length - 1;
+      }
+    }
 
     const scoreMatch = line.match(/lavfi\.scene_score=([0-9]+(?:\.[0-9]+)?)/);
-    const seconds = Number(ptsMatch[1]);
-    if (!Number.isFinite(seconds) || seconds < 0) continue;
-
-    const score = scoreMatch?.[1] ? Number(scoreMatch[1]) : null;
-    detections.push({
-      timestampMs: Math.round(seconds * 1000),
-      score: score !== null && Number.isFinite(score) ? score : null,
-    });
+    if (scoreMatch?.[1] && pendingIndex !== null) {
+      const score = Number(scoreMatch[1]);
+      if (Number.isFinite(score)) {
+        const pending = detections[pendingIndex];
+        if (pending) pending.score = score;
+      }
+      pendingIndex = null;
+    }
   }
 
   return detections;
@@ -181,9 +191,7 @@ async function detectSceneChanges(input: {
         input.sourcePath,
         "-an",
         "-vf",
-        `select='gt(scene,${input.threshold})',metadata=print`,
-        "-vsync",
-        "vfr",
+        `select=gt(scene\\,${input.threshold}),metadata=print`,
         "-f",
         "null",
         "-",

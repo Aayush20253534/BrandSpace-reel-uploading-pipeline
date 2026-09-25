@@ -1,5 +1,6 @@
 import { loadEnvFile } from "node:process";
 import { prisma } from "../packages/database/src/index.ts";
+import { MediaToolError } from "../packages/media-intelligence/src/index.ts";
 import { detectMediaScenes } from "../packages/media-intelligence/src/scenes.ts";
 import {
   GoogleDriveMediaStorage,
@@ -71,6 +72,9 @@ main()
   .catch((error: unknown) => {
     console.error("[media:scenes] failed");
     console.error(error instanceof Error ? error.message : error);
+    if (error instanceof MediaToolError && error.stderr) {
+      console.error(error.stderr);
+    }
     process.exitCode = 1;
   })
   .finally(async () => {
