@@ -12,3 +12,5 @@ coverage
 tmp
 .temp
 .turbo
+artifacts/
+*.patch
