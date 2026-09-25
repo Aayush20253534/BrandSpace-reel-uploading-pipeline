@@ -2,11 +2,11 @@
 
 ## Current phase
 
-Phase 10 — Queue and Scheduling
+Phase 11 — Instagram Distribution
 
-Status: Phases 1–9 and Phase 10.1 are implemented and validated through live
-acceptance. Phase 10.2 adds automatic PostgreSQL-to-BullMQ reconciliation, retry
-bookkeeping, failed queue-job repair and queue observability before Meta distribution.
+Status: Phases 1–10 are implemented and validated through live acceptance. Phase 11.1
+introduces the tenant-scoped social-account and encrypted credential boundary required
+before any Meta publishing calls are allowed.
 
 ## Completed
 
@@ -19,15 +19,17 @@ bookkeeping, failed queue-job repair and queue observability before Meta distrib
 - Phase 7 deterministic FFmpeg rendering and durable generated reel artifacts.
 - Phase 8 technical QA and deterministic creative/brand-policy QA.
 - Phase 9 durable human approval requests and atomic decisions.
-- Phase 10.1 PostgreSQL-backed publishing intents with BullMQ delayed delivery,
-  deterministic queue IDs and worker-side atomic dispatch claiming.
+- Phase 10 durable BullMQ scheduling, PostgreSQL-to-Redis reconciliation, retry
+  bookkeeping and worker-side atomic dispatch claiming.
 - Google Drive OAuth development path and Shared Drive-aware storage adapter.
 - AI provenance and usage accounting for model-backed stages.
-- Idempotent planning, rendering, QA, approval and scheduling acceptance paths.
+- Idempotent planning, rendering, QA, approval, scheduling and queue reconciliation.
 
 ## Intentionally deferred
 
-- Meta/Instagram API integration and SocialAccount credential model.
+- Instagram OAuth callback and token verification/refresh.
+- Temporary public media delivery for Meta ingestion.
+- Instagram container creation/status polling and `media_publish`.
 - Full operations dashboard.
 - Incremental Google Drive change-feed ingestion.
 - Source-revision-aware invalidation for cached media intelligence.
@@ -44,11 +46,12 @@ bookkeeping, failed queue-job repair and queue observability before Meta distrib
 5. Complete human approval where required.
 6. Configure Redis and schedule approved publishing work.
 7. Run or observe queue reconciliation and dispatch.
-8. Run the full verification suite before each phase commit.
+8. Configure the social token-encryption key before importing Instagram credentials.
+9. Run the full verification suite before each phase commit.
 
 ## Next phase
 
-Phase 11 — Instagram distribution:
-introduce tenant-scoped SocialAccount records, secure Meta/Instagram authorization,
-temporary public media delivery, container creation/status polling, media publishing,
-verification, retries and multi-client isolation.
+Phase 11.2 — Instagram OAuth:
+implement Business Login for Instagram, OAuth state/PKCE protections where supported,
+callback handling, token/profile verification, safe credential rotation and promotion
+of verified Instagram accounts from `PENDING` to `CONNECTED`.

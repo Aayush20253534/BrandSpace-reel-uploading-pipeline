@@ -107,6 +107,18 @@ enum PublishingState {
   CANCELLED
 }
 
+enum SocialPlatform {
+  INSTAGRAM
+}
+
+enum SocialAccountStatus {
+  PENDING
+  CONNECTED
+  NEEDS_REAUTH
+  DISCONNECTED
+  DISABLED
+}
+
 enum ActorType {
   USER
   SYSTEM
@@ -226,6 +238,7 @@ model Client {
   aiProvenance      AiProvenance[]
   usageLedger       UsageLedger[]
   driveSyncState    DriveSyncState?
+  socialAccounts    SocialAccount[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -422,6 +435,30 @@ model Approval {
   @@index([reelProjectId, decision])
 }
 
+model SocialAccount {
+  id                    String              @id @default(cuid())
+  clientId              String
+  platform              SocialPlatform      @default(INSTAGRAM)
+  providerAccountId     String
+  username              String?
+  displayName           String?
+  status                SocialAccountStatus @default(PENDING)
+  scopes                String[]
+  accessTokenCiphertext String?
+  tokenExpiresAt        DateTime?
+  connectedAt           DateTime?
+  lastVerifiedAt        DateTime?
+  metadata              Json?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  client                Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  publishingJobs        PublishingJob[]
+
+  @@unique([clientId, platform, providerAccountId])
+  @@index([clientId, platform, status])
+  @@index([platform, providerAccountId])
+}
+
 model PublishingJob {
   id                  String          @id @default(cuid())
   reelProjectId       String
@@ -441,6 +478,7 @@ model PublishingJob {
   updatedAt           DateTime        @updatedAt
   reelProject         ReelProject     @relation(fields: [reelProjectId], references: [id], onDelete: Cascade)
   reelVersion         ReelVersion     @relation(fields: [reelVersionId], references: [id], onDelete: Restrict)
+  socialAccount       SocialAccount   @relation(fields: [socialAccountId], references: [id], onDelete: Restrict)
   analyticsSnapshots  ReelAnalyticsSnapshot[]
 
   @@index([state, scheduledAt])

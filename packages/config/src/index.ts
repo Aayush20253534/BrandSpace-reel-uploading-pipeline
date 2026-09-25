@@ -40,6 +40,8 @@ const schema = z.object({
 
   REDIS_URL: optionalUrl,
 
+  SOCIAL_TOKEN_ENCRYPTION_KEY: optionalString,
+
   GOOGLE_DRIVE_MODE: z.enum(["my-drive", "shared-drive"]).default("my-drive"),
 
   GOOGLE_DRIVE_AUTH_MODE: z

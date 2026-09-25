@@ -2,6 +2,7 @@ import { loadEnvFile } from "node:process";
 import { Prisma, prisma } from "../packages/database/src/index.ts";
 import { buildPublishingIdempotencyKey } from "../packages/domain/src/index.ts";
 import { enqueuePublishingDispatch } from "../packages/queue/src/index.ts";
+import { assertSocialAccountSchedulable } from "../packages/social/src/index.ts";
 
 loadEnvFile(".env");
 
@@ -27,7 +28,7 @@ if (scheduledAt.getTime() <= Date.now()) {
 async function main() {
   const redisUrl = process.env.REDIS_URL?.trim();
   if (!redisUrl) {
-    throw new Error("REDIS_URL is required for Phase 10 scheduling");
+    throw new Error("REDIS_URL is required for reel scheduling");
   }
 
   const result = await prisma.$transaction(
@@ -75,6 +76,23 @@ async function main() {
           `Active ReelVersion ${version.id} has no rendered artifact`,
         );
       }
+
+      const socialAccount = await tx.socialAccount.findUnique({
+        where: { id: socialAccountId },
+        select: {
+          id: true,
+          clientId: true,
+          platform: true,
+          status: true,
+          accessTokenCiphertext: true,
+          tokenExpiresAt: true,
+        },
+      });
+      if (!socialAccount) {
+        throw new Error(`SocialAccount not found: ${socialAccountId}`);
+      }
+
+      assertSocialAccountSchedulable(socialAccount, project.client.id);
 
       const idempotencyKey = buildPublishingIdempotencyKey(
         version.id,
