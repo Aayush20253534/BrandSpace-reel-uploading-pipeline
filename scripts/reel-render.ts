@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
 import { loadEnvFile } from "node:process";
-import { prisma } from "../packages/database/src/index.ts";
+import { Prisma, prisma } from "../packages/database/src/index.ts";
 import { probeMedia } from "../packages/media-intelligence/src/index.ts";
 import {
   renderReel,
@@ -10,10 +10,12 @@ import {
   type RenderSource,
 } from "../packages/reel-rendering/src/index.ts";
 import {
+  GOOGLE_DRIVE_FOLDER_MIME_TYPE,
   GoogleDriveMediaStorage,
   type GoogleDriveAuthMode,
   type GoogleDriveMode,
   type GoogleDriveMediaStorageOptions,
+  type MediaObject,
 } from "../packages/storage/src/index.ts";
 
 loadEnvFile(".env");
@@ -69,6 +71,19 @@ const toolchain = {
   ffprobePath: process.env.FFPROBE_PATH?.trim() || "ffprobe",
 };
 
+async function ensureGeneratedFolder(
+  storage: GoogleDriveMediaStorage,
+  clientFolderId: string,
+): Promise<MediaObject> {
+  const children = await storage.listChildren(clientFolderId);
+  const existing = children.find(
+    (child) =>
+      child.name === "Generated" &&
+      child.mimeType === GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+  );
+  return existing ?? (await storage.createFolder(clientFolderId, "Generated"));
+}
+
 async function main() {
   const version = await prisma.reelVersion.findUnique({
     where: { id: reelVersionId },
@@ -76,7 +91,14 @@ async function main() {
       id: true,
       reelProjectId: true,
       version: true,
-      reelProject: { select: { state: true } },
+      renderedAssetId: true,
+      reelProject: {
+        select: {
+          state: true,
+          clientId: true,
+          client: { select: { driveFolderId: true } },
+        },
+      },
       sources: {
         orderBy: { order: "asc" },
         select: {
@@ -97,16 +119,47 @@ async function main() {
   });
 
   if (!version) throw new Error(`ReelVersion not found: ${reelVersionId}`);
-  if (version.reelProject.state !== "PLANNED") {
+
+  if (version.renderedAssetId) {
+    const existing = await prisma.mediaAsset.findUnique({
+      where: { id: version.renderedAssetId },
+      select: { id: true, driveFileId: true, name: true },
+    });
+    if (!existing) {
+      throw new Error(
+        `ReelVersion ${version.id} references missing rendered asset ${version.renderedAssetId}`,
+      );
+    }
+    console.log("[reel:render] durable artifact already exists");
+    console.log(
+      JSON.stringify({ reelVersionId: version.id, asset: existing }, null, 2),
+    );
+    return;
+  }
+
+  if (
+    !["PLANNED", "RENDERING", "RENDER_FAILED"].includes(
+      version.reelProject.state,
+    )
+  ) {
     throw new Error(
-      `ReelProject ${version.reelProjectId} must be PLANNED before rendering`,
+      `ReelProject ${version.reelProjectId} cannot render from ${version.reelProject.state}`,
     );
   }
   if (version.sources.length === 0)
     throw new Error("ReelVersion has no sources");
 
+  const clientFolderId = version.reelProject.client.driveFolderId;
+  if (!clientFolderId) {
+    throw new Error(
+      `Client ${version.reelProject.clientId} does not have a Drive folder`,
+    );
+  }
+
   const storage = new GoogleDriveMediaStorage(storageOptions);
   await storage.verifyConnection();
+  const generatedFolder = await ensureGeneratedFolder(storage, clientFolderId);
+  const artifactName = `reel-${version.reelProjectId}-v${version.version}.mp4`;
   const workDir = await mkdtemp(join(tmpdir(), "brandspace-render-"));
   const renderJob = await prisma.renderJob.create({
     data: {
@@ -117,6 +170,8 @@ async function main() {
       input: {
         profileVersion: REEL_RENDER_PROFILE_VERSION,
         sourceCount: version.sources.length,
+        artifactName,
+        generatedFolderId: generatedFolder.id,
       },
     },
     select: { id: true },
@@ -165,23 +220,139 @@ async function main() {
     });
     const probe = await probeMedia(outputPath, toolchain);
 
-    await prisma.renderJob.update({
-      where: { id: renderJob.id },
-      data: {
-        state: "SUCCEEDED",
-        completedAt: new Date(),
-        output: {
-          ...result,
-          width: probe.width,
-          height: probe.height,
-          durationMs: probe.durationMs,
-          hasVideo: probe.hasVideo,
-          hasAudio: probe.hasAudio,
-        },
-      },
-    });
+    const generatedChildren = await storage.listChildren(generatedFolder.id);
+    let uploaded = generatedChildren.find(
+      (child) => child.name === artifactName && child.mimeType === "video/mp4",
+    );
+    if (!uploaded) {
+      uploaded = await storage.uploadFromFile({
+        parentId: generatedFolder.id,
+        name: artifactName,
+        mimeType: "video/mp4",
+        sourcePath: outputPath,
+      });
+    }
 
-    console.log("[reel:render] deterministic render complete");
+    const persisted = await prisma.$transaction(
+      async (tx) => {
+        const current = await tx.reelVersion.findUnique({
+          where: { id: version.id },
+          select: { renderedAssetId: true },
+        });
+        if (!current) {
+          throw new Error(
+            `ReelVersion disappeared during render: ${version.id}`,
+          );
+        }
+
+        if (current.renderedAssetId) {
+          return { renderedAssetId: current.renderedAssetId, reused: true };
+        }
+
+        const asset = await tx.mediaAsset.upsert({
+          where: {
+            clientId_driveFileId: {
+              clientId: version.reelProject.clientId,
+              driveFileId: uploaded.id,
+            },
+          },
+          create: {
+            clientId: version.reelProject.clientId,
+            kind: "GENERATED_REEL",
+            state: "READY",
+            driveFileId: uploaded.id,
+            driveRevisionId: uploaded.revisionId,
+            parentDriveId: generatedFolder.id,
+            name: uploaded.name,
+            mimeType: uploaded.mimeType,
+            sizeBytes: uploaded.sizeBytes,
+            checksum: uploaded.checksum,
+            durationMs: probe.durationMs,
+            width: probe.width,
+            height: probe.height,
+            metadata: {
+              generatedBy: "reel.render",
+              profileVersion: REEL_RENDER_PROFILE_VERSION,
+              reelVersionId: version.id,
+              renderJobId: renderJob.id,
+            },
+          },
+          update: {
+            state: "READY",
+            driveRevisionId: uploaded.revisionId,
+            parentDriveId: generatedFolder.id,
+            name: uploaded.name,
+            mimeType: uploaded.mimeType,
+            sizeBytes: uploaded.sizeBytes,
+            checksum: uploaded.checksum,
+            durationMs: probe.durationMs,
+            width: probe.width,
+            height: probe.height,
+          },
+          select: { id: true },
+        });
+
+        await tx.reelVersion.update({
+          where: { id: version.id },
+          data: { renderedAssetId: asset.id },
+        });
+
+        await tx.renderJob.update({
+          where: { id: renderJob.id },
+          data: {
+            state: "SUCCEEDED",
+            completedAt: new Date(),
+            output: {
+              driveFileId: uploaded.id,
+              mediaAssetId: asset.id,
+              generatedFolderId: generatedFolder.id,
+              artifactName,
+              sizeBytes: uploaded.sizeBytes ?? result.sizeBytes,
+              expectedDurationMs: result.expectedDurationMs,
+              durationMs: probe.durationMs,
+              width: probe.width,
+              height: probe.height,
+              hasVideo: probe.hasVideo,
+              hasAudio: probe.hasAudio,
+              profileVersion: result.profileVersion,
+            },
+          },
+        });
+
+        await tx.usageLedger.create({
+          data: {
+            clientId: version.reelProject.clientId,
+            reelProjectId: version.reelProjectId,
+            kind: "RENDER",
+            provider: "ffmpeg",
+            operation: "reel.render",
+            model: REEL_RENDER_PROFILE_VERSION,
+            quantity: new Prisma.Decimal(result.expectedDurationMs),
+            unit: "ms",
+            metadata: {
+              reelVersionId: version.id,
+              renderJobId: renderJob.id,
+              mediaAssetId: asset.id,
+              driveFileId: uploaded.id,
+            },
+          },
+        });
+
+        await tx.reelProject.update({
+          where: { id: version.reelProjectId },
+          data: { state: "QA" },
+        });
+
+        return { renderedAssetId: asset.id, reused: false };
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 10_000,
+        timeout: 30_000,
+      },
+    );
+
+    console.log("[reel:render] durable render complete");
     console.log(
       JSON.stringify(
         {
@@ -189,8 +360,14 @@ async function main() {
           reelProjectId: version.reelProjectId,
           reelVersionId: version.id,
           version: version.version,
+          mediaAssetId: persisted.renderedAssetId,
+          driveFileId: uploaded.id,
+          generatedFolderId: generatedFolder.id,
+          artifactName,
+          reusedExistingDatabaseArtifact: persisted.reused,
           ...result,
           probe,
+          nextState: "QA",
         },
         null,
         2,

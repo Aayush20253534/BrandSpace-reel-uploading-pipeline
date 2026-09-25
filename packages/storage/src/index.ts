@@ -32,6 +32,7 @@ export interface MediaStorage {
   listChildren(folderId: string): Promise<MediaObject[]>;
   downloadToFile(id: string, destination: string): Promise<void>;
   uploadFromFile(input: UploadMediaInput): Promise<MediaObject>;
+  createFolder(parentId: string, name: string): Promise<MediaObject>;
 }
 
 export type GoogleDriveMode = "my-drive" | "shared-drive";
@@ -210,6 +211,19 @@ export class GoogleDriveMediaStorage implements MediaStorage {
       media: {
         mimeType: input.mimeType,
         body: createReadStream(input.sourcePath),
+      },
+    });
+    return toMediaObject(response.data);
+  }
+
+  async createFolder(parentId: string, name: string): Promise<MediaObject> {
+    const response = await this.drive.files.create({
+      supportsAllDrives: true,
+      fields: FILE_FIELDS,
+      requestBody: {
+        name,
+        mimeType: GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+        parents: [parentId],
       },
     });
     return toMediaObject(response.data);
