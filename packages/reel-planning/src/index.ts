@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from "@forge/database";
 
 export const REEL_BLUEPRINT_VERSION = "reel-blueprint-v1" as const;
+export const REEL_PLANNING_PROMPT_VERSION = "reel-planning-prompt-v2" as const;
 
 export type ReelSectionRole =
   "HOOK" | "BODY" | "PROOF" | "CTA" | "BROLL" | "OTHER";
@@ -67,6 +68,7 @@ export interface ReelPlanningProviderResult {
   inputTokens: number | null;
   outputTokens: number | null;
   confidence: number | null;
+  promptVersion?: string;
 }
 
 export interface ReelPlanningProvider {
@@ -107,11 +109,6 @@ const finiteNumber = (value: unknown): number | null => {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
-
-const strings = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
 
 const candidateKey = (
   mediaAssetId: string,
@@ -238,6 +235,37 @@ export function validateReelBlueprint(
         "REEL_BLUEPRINT_PURPOSE_REQUIRED",
       );
     }
+  }
+
+  return blueprint;
+}
+
+const normalizePolicyTerm = (value: string) => value.trim().toLocaleLowerCase();
+
+export function validateBrandPolicy(
+  blueprint: ReelBlueprint,
+  context: ReelPlanningContext,
+): ReelBlueprint {
+  const bannedWords =
+    context.brand?.bannedWords.map(normalizePolicyTerm).filter(Boolean) ?? [];
+  if (bannedWords.length === 0) return blueprint;
+
+  const generatedText = [
+    blueprint.hook,
+    blueprint.caption,
+    blueprint.cta,
+    ...blueprint.clips.map((clip) => clip.purpose),
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .join("\n")
+    .toLocaleLowerCase();
+
+  const matched = bannedWords.find((term) => generatedText.includes(term));
+  if (matched) {
+    throw new ReelPlanningError(
+      `Reel blueprint contains banned brand wording: ${matched}`,
+      "REEL_BLUEPRINT_BRAND_POLICY_VIOLATION",
+    );
   }
 
   return blueprint;
@@ -383,91 +411,117 @@ export async function planReelProject(input: {
   const context = await buildReelPlanningContext(input);
   const startedAt = Date.now();
   const result = await input.provider.plan(context);
-  const blueprint = validateReelBlueprint(result.blueprint, context.candidates);
-
-  const previous = await input.database.reelVersion.findFirst({
-    where: { reelProjectId: context.reelProjectId },
-    orderBy: { version: "desc" },
-    select: { version: true },
-  });
-  const version = (previous?.version ?? 0) + 1;
-
-  const persisted = await input.database.$transaction(async (tx) => {
-    const reelVersion = await tx.reelVersion.create({
-      data: {
-        reelProjectId: context.reelProjectId,
-        version,
-        blueprint: reelBlueprintJson(blueprint),
-        caption: blueprint.caption,
-        cta: blueprint.cta,
-        createdByActorType: "AI",
-        sources: {
-          create: blueprint.clips.map((clip, order) => ({
-            mediaAssetId: clip.mediaAssetId,
-            order,
-            inMs: clip.startMs,
-            outMs: clip.endMs,
-            role: clip.role,
-          })),
-        },
-      },
-      select: { id: true },
-    });
-
-    await tx.reelProject.update({
-      where: { id: context.reelProjectId },
-      data: { state: "PLANNED", activeVersion: version },
-    });
-
-    return reelVersion;
-  });
-
+  const blueprint = validateBrandPolicy(
+    validateReelBlueprint(result.blueprint, context.candidates),
+    context,
+  );
   const latencyMs = Date.now() - startedAt;
-  await Promise.all([
-    input.database.aiProvenance.create({
-      data: {
-        clientId: context.clientId,
-        reelProjectId: context.reelProjectId,
-        operation: "reel.plan",
-        provider: result.provider,
-        model: result.model,
-        promptVersion: REEL_BLUEPRINT_VERSION,
-        inputReference: {
-          candidateCount: context.candidates.length,
-          selectedSourceCount: blueprint.clips.length,
-        },
-        structuredOutput: reelBlueprintJson(blueprint),
-        ...(result.confidence !== null
-          ? { confidence: new Prisma.Decimal(result.confidence) }
-          : {}),
-        latencyMs,
-      },
-    }),
-    input.database.usageLedger.create({
-      data: {
-        clientId: context.clientId,
-        reelProjectId: context.reelProjectId,
-        kind: "AI",
-        provider: result.provider,
-        operation: "reel.plan",
-        model: result.model,
-        inputUnits: result.inputTokens,
-        outputUnits: result.outputTokens,
-        metadata: {
-          reelVersionId: persisted.id,
+  const promptVersion =
+    result.promptVersion?.trim() || REEL_PLANNING_PROMPT_VERSION;
+
+  const persisted = await input.database.$transaction(
+    async (tx) => {
+      const current = await tx.reelProject.findUnique({
+        where: { id: context.reelProjectId },
+        select: { state: true },
+      });
+      if (
+        !current ||
+        (current.state !== "DRAFT" && current.state !== "REVISION_REQUESTED")
+      ) {
+        throw new ReelPlanningError(
+          `ReelProject ${context.reelProjectId} is no longer plannable`,
+          "REEL_PROJECT_NOT_PLANNABLE",
+        );
+      }
+
+      const previous = await tx.reelVersion.findFirst({
+        where: { reelProjectId: context.reelProjectId },
+        orderBy: { version: "desc" },
+        select: { version: true },
+      });
+      const version = (previous?.version ?? 0) + 1;
+
+      const reelVersion = await tx.reelVersion.create({
+        data: {
+          reelProjectId: context.reelProjectId,
           version,
-          candidateCount: context.candidates.length,
-          selectedSourceCount: blueprint.clips.length,
+          blueprint: reelBlueprintJson(blueprint),
+          caption: blueprint.caption,
+          cta: blueprint.cta,
+          createdByActorType: "AI",
+          sources: {
+            create: blueprint.clips.map((clip, order) => ({
+              mediaAssetId: clip.mediaAssetId,
+              order,
+              inMs: clip.startMs,
+              outMs: clip.endMs,
+              role: clip.role,
+            })),
+          },
+        },
+        select: { id: true },
+      });
+
+      await tx.reelProject.update({
+        where: { id: context.reelProjectId },
+        data: { state: "PLANNED", activeVersion: version },
+      });
+
+      await tx.aiProvenance.create({
+        data: {
+          clientId: context.clientId,
+          reelProjectId: context.reelProjectId,
+          operation: "reel.plan",
+          provider: result.provider,
+          model: result.model,
+          promptVersion,
+          inputReference: {
+            candidateCount: context.candidates.length,
+            selectedSourceCount: blueprint.clips.length,
+          },
+          structuredOutput: reelBlueprintJson(blueprint),
+          ...(result.confidence !== null
+            ? { confidence: new Prisma.Decimal(result.confidence) }
+            : {}),
           latencyMs,
         },
-      },
-    }),
-  ]);
+      });
+
+      await tx.usageLedger.create({
+        data: {
+          clientId: context.clientId,
+          reelProjectId: context.reelProjectId,
+          kind: "AI",
+          provider: result.provider,
+          operation: "reel.plan",
+          model: result.model,
+          inputUnits: result.inputTokens,
+          outputUnits: result.outputTokens,
+          metadata: {
+            reelVersionId: reelVersion.id,
+            version,
+            candidateCount: context.candidates.length,
+            selectedSourceCount: blueprint.clips.length,
+            latencyMs,
+            promptVersion,
+          },
+        },
+      });
+
+      return { id: reelVersion.id, version };
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 10_000,
+      timeout: 30_000,
+    },
+  );
 
   return {
     reelProjectId: context.reelProjectId,
     reelVersionId: persisted.id,
-    version,
+    version: persisted.version,
     blueprint,
     provider: result.provider,
     model: result.model,

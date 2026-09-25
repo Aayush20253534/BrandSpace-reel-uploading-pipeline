@@ -60,6 +60,7 @@ test("Groq provider returns a normalized strict reel blueprint", async () => {
   assert.equal(result.model, "qwen/qwen3.8-27b");
   assert.equal(result.inputTokens, 120);
   assert.equal(result.outputTokens, 80);
+  assert.equal(result.promptVersion, "reel-planning-prompt-v2");
   assert.equal(result.blueprint.title, context.title);
   assert.equal(result.blueprint.objective, context.objective);
   assert.equal(result.blueprint.clips[0]?.mediaAssetId, "asset-1");
