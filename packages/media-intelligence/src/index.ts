@@ -72,6 +72,17 @@ export class MediaToolError extends Error {
   }
 }
 
+const PERMANENT_MEDIA_ERROR_CODES = new Set([
+  "MEDIA_DOWNLOAD_INVALID",
+  "FFPROBE_INVALID_JSON",
+  "VIDEO_STREAM_MISSING",
+  "AUDIO_STREAM_MISSING",
+]);
+
+export const isPermanentMediaFailure = (error: unknown): boolean =>
+  error instanceof MediaToolError &&
+  PERMANENT_MEDIA_ERROR_CODES.has(error.code);
+
 const finiteNumber = (value: unknown): number | null => {
   const number =
     typeof value === "number"
@@ -426,7 +437,13 @@ export async function preprocessMediaAsset(input: {
     await Promise.allSettled([
       input.database.mediaAsset.update({
         where: { id: asset.id },
-        data: { state: "INVALID" },
+        data: {
+          state: isPermanentMediaFailure(error)
+            ? "INVALID"
+            : asset.state === "ANALYZING"
+              ? "READY"
+              : asset.state,
+        },
       }),
       input.database.mediaAnalysis.update({
         where: { id: analysis.id },
@@ -464,6 +481,8 @@ export interface PrepareMediaOptions {
   maxFrameWidth?: number;
   audioSampleRate?: number;
   timeoutMs?: number;
+  extractFrames?: boolean;
+  extractAudio?: boolean;
 }
 
 export function representativeFrameTimestamps(
@@ -655,7 +674,9 @@ export async function withPreparedMediaAsset<T>(input: {
     }
 
     const frames =
-      probe.hasVideo && probe.durationMs !== null
+      input.options?.extractFrames !== false &&
+      probe.hasVideo &&
+      probe.durationMs !== null
         ? await extractRepresentativeFrames({
             sourcePath,
             destinationDir: workDir,
@@ -676,9 +697,10 @@ export async function withPreparedMediaAsset<T>(input: {
           })
         : [];
 
-    const audioPath = probe.hasAudio
-      ? join(workDir, "audio-16khz-mono.wav")
-      : null;
+    const audioPath =
+      input.options?.extractAudio !== false && probe.hasAudio
+        ? join(workDir, "audio-16khz-mono.wav")
+        : null;
 
     if (audioPath) {
       await extractNormalizedAudio({

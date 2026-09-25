@@ -477,6 +477,7 @@ export async function understandMediaAsset(input: {
   database: SemanticAnalysisDatabase;
   toolchain: MediaToolchain;
   provider: SemanticAnalysisProvider;
+  force?: boolean;
 }): Promise<{
   mediaAssetId: string;
   analysisId: string;
@@ -505,6 +506,9 @@ export async function understandMediaAsset(input: {
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
+      summary: true,
+      tags: true,
+      subjects: true,
       transcript: true,
       language: true,
       scenes: true,
@@ -528,6 +532,34 @@ export async function understandMediaAsset(input: {
     );
   }
 
+  const semanticNode =
+    existingAnalysis.visual &&
+    typeof existingAnalysis.visual === "object" &&
+    !Array.isArray(existingAnalysis.visual) &&
+    isRecord((existingAnalysis.visual as Prisma.JsonObject).semantic)
+      ? ((existingAnalysis.visual as Prisma.JsonObject).semantic as JsonRecord)
+      : null;
+
+  if (
+    !input.force &&
+    existingAnalysis.summary?.trim() &&
+    semanticNode?.provider === input.provider.name &&
+    semanticNode.model === input.provider.model
+  ) {
+    return {
+      mediaAssetId: asset.id,
+      analysisId: existingAnalysis.id,
+      summary: existingAnalysis.summary,
+      tags: existingAnalysis.tags,
+      subjects: existingAnalysis.subjects,
+      semanticSegmentCount: Array.isArray(semanticNode.semanticSegments)
+        ? semanticNode.semanticSegments.length
+        : 0,
+      provider: input.provider.name,
+      model: input.provider.model,
+    };
+  }
+
   const analysis = await input.database.mediaAnalysis.update({
     where: { id: existingAnalysis.id },
     data: {
@@ -548,7 +580,11 @@ export async function understandMediaAsset(input: {
       storage: input.storage,
       database: input.database,
       toolchain: input.toolchain,
-      options: { frameCount: 3, maxFrameWidth: 768 },
+      options: {
+        frameCount: 3,
+        maxFrameWidth: 768,
+        extractAudio: false,
+      },
       consume: async (workspace) =>
         await input.provider.analyze({
           frames: workspace.frames,

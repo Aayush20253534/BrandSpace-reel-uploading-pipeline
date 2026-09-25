@@ -341,7 +341,7 @@ export async function detectMediaScenes(input: {
       storage: input.storage,
       database: input.database,
       toolchain: input.toolchain,
-      options: { frameCount: 1 },
+      options: { extractFrames: false, extractAudio: false },
       consume: async (workspace) => {
         if (workspace.probe.durationMs === null) {
           throw new MediaToolError(

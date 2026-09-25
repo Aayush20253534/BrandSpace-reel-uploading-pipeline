@@ -132,6 +132,42 @@ const transcriptQuality = (
   };
 };
 
+const cachedTranscription = (
+  transcript: string | null,
+  language: string | null,
+  quality: Prisma.JsonValue | null,
+  provider: TranscriptionProvider,
+) => {
+  if (
+    !transcript?.trim() ||
+    !quality ||
+    typeof quality !== "object" ||
+    Array.isArray(quality)
+  ) {
+    return null;
+  }
+
+  const node = (quality as Prisma.JsonObject).transcription;
+  if (!node || typeof node !== "object" || Array.isArray(node)) return null;
+
+  const record = node as Prisma.JsonObject;
+  if (record.provider !== provider.name || record.model !== provider.model) {
+    return null;
+  }
+
+  return {
+    transcript,
+    language,
+    segmentCount:
+      typeof record.segmentCount === "number" &&
+      Number.isFinite(record.segmentCount)
+        ? Math.max(0, Math.trunc(record.segmentCount))
+        : 0,
+    provider: provider.name,
+    model: provider.model,
+  };
+};
+
 export async function transcribeMediaAsset(input: {
   mediaAssetId: string;
   storage: MediaStorage;
@@ -139,6 +175,7 @@ export async function transcribeMediaAsset(input: {
   toolchain: MediaToolchain;
   provider: TranscriptionProvider;
   language?: string;
+  force?: boolean;
 }): Promise<{
   mediaAssetId: string;
   analysisId: string;
@@ -161,8 +198,30 @@ export async function transcribeMediaAsset(input: {
   const existingAnalysis = await input.database.mediaAnalysis.findFirst({
     where: { mediaAssetId: asset.id },
     orderBy: { createdAt: "desc" },
-    select: { id: true, quality: true },
+    select: {
+      id: true,
+      transcript: true,
+      language: true,
+      quality: true,
+    },
   });
+
+  const cached = existingAnalysis
+    ? cachedTranscription(
+        existingAnalysis.transcript,
+        existingAnalysis.language,
+        existingAnalysis.quality,
+        input.provider,
+      )
+    : null;
+
+  if (cached && !input.force) {
+    return {
+      mediaAssetId: asset.id,
+      analysisId: existingAnalysis!.id,
+      ...cached,
+    };
+  }
 
   const startedAt = new Date();
   const analysis = existingAnalysis
@@ -196,7 +255,7 @@ export async function transcribeMediaAsset(input: {
       storage: input.storage,
       database: input.database,
       toolchain: input.toolchain,
-      options: { frameCount: 1 },
+      options: { extractFrames: false },
       consume: async (workspace) => {
         if (!workspace.audioPath) {
           throw new MediaToolError(
