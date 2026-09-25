@@ -20,11 +20,14 @@ const required = (name: string) => {
   return value;
 };
 
-const mediaAssetId = process.argv[2]?.trim();
-const language = process.argv[3]?.trim();
+const args = process.argv.slice(2);
+const force = args.includes("--force");
+const positionalArgs = args.filter((arg) => arg !== "--force");
+const mediaAssetId = positionalArgs[0]?.trim();
+const language = positionalArgs[1]?.trim();
 if (!mediaAssetId) {
   console.error(
-    "Usage: npm run media:transcribe -- <media-asset-id> [language-code]",
+    "Usage: npm run media:transcribe -- <media-asset-id> [language-code] [--force]",
   );
   process.exit(1);
 }
@@ -88,6 +91,7 @@ async function main() {
     },
     provider,
     ...(language ? { language } : {}),
+    force,
   });
 
   console.log("[media:transcribe] transcription complete");

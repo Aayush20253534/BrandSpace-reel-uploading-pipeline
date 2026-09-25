@@ -20,9 +20,14 @@ const required = (name: string) => {
   return value;
 };
 
-const mediaAssetId = process.argv[2]?.trim();
+const args = process.argv.slice(2);
+const force = args.includes("--force");
+const positionalArgs = args.filter((arg) => arg !== "--force");
+const mediaAssetId = positionalArgs[0]?.trim();
 if (!mediaAssetId) {
-  console.error("Usage: npm run media:understand -- <media-asset-id>");
+  console.error(
+    "Usage: npm run media:understand -- <media-asset-id> [--force]",
+  );
   process.exit(1);
 }
 
@@ -75,6 +80,7 @@ async function main() {
       ffprobePath: process.env.FFPROBE_PATH?.trim() || "ffprobe",
     },
     provider,
+    force,
   });
 
   console.log("[media:understand] semantic analysis complete");
