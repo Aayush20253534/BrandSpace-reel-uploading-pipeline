@@ -34,8 +34,11 @@ export interface MediaStorage {
   uploadFromFile(input: UploadMediaInput): Promise<MediaObject>;
 }
 
+export type GoogleDriveMode = "my-drive" | "shared-drive";
+
 export interface GoogleDriveMediaStorageOptions {
-  driveId: string;
+  mode: GoogleDriveMode;
+  driveId?: string;
   rootFolderId: string;
   serviceAccountEmail: string;
   privateKey: string;
@@ -83,10 +86,16 @@ export const normalizeGooglePrivateKey = (value: string) =>
 
 export class GoogleDriveMediaStorage implements MediaStorage {
   private readonly drive: drive_v3.Drive;
-  private readonly driveId: string;
+  private readonly mode: GoogleDriveMode;
+  private readonly driveId: string | undefined;
   readonly rootFolderId: string;
 
   constructor(options: GoogleDriveMediaStorageOptions) {
+    if (options.mode === "shared-drive" && !options.driveId) {
+      throw new Error("GOOGLE_DRIVE_ID is required in shared-drive mode");
+    }
+
+    this.mode = options.mode;
     this.driveId = options.driveId;
     this.rootFolderId = options.rootFolderId;
 
@@ -102,10 +111,12 @@ export class GoogleDriveMediaStorage implements MediaStorage {
   }
 
   async verifyConnection() {
-    await this.drive.drives.get({
-      driveId: this.driveId,
-      fields: "id,name",
-    });
+    if (this.mode === "shared-drive") {
+      await this.drive.drives.get({
+        driveId: required(this.driveId, "driveId"),
+        fields: "id,name",
+      });
+    }
 
     const root = await this.getMetadata(this.rootFolderId);
     if (root.mimeType !== GOOGLE_DRIVE_FOLDER_MIME_TYPE) {
@@ -130,12 +141,14 @@ export class GoogleDriveMediaStorage implements MediaStorage {
       const params: drive_v3.Params$Resource$Files$List = {
         q: `'${escapeQueryValue(folderId)}' in parents and trashed = false`,
         spaces: "drive",
-        corpora: "drive",
-        driveId: this.driveId,
+        corpora: this.mode === "shared-drive" ? "drive" : "user",
         supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
+        includeItemsFromAllDrives: this.mode === "shared-drive",
         fields: `nextPageToken,files(${FILE_FIELDS})`,
         pageSize: 1000,
+        ...(this.mode === "shared-drive"
+          ? { driveId: required(this.driveId, "driveId") }
+          : {}),
         ...(pageToken ? { pageToken } : {}),
       };
 
@@ -173,10 +186,13 @@ export class GoogleDriveMediaStorage implements MediaStorage {
   }
 
   async getStartPageToken(): Promise<string> {
-    const response = await this.drive.changes.getStartPageToken({
-      driveId: this.driveId,
+    const params: drive_v3.Params$Resource$Changes$Getstartpagetoken = {
       supportsAllDrives: true,
-    });
+      ...(this.mode === "shared-drive"
+        ? { driveId: required(this.driveId, "driveId") }
+        : {}),
+    };
+    const response = await this.drive.changes.getStartPageToken(params);
     return required(response.data.startPageToken, "startPageToken");
   }
 }

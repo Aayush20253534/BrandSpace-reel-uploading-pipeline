@@ -40,6 +40,8 @@ const schema = z.object({
 
   REDIS_URL: optionalUrl,
 
+  GOOGLE_DRIVE_MODE: z.enum(["my-drive", "shared-drive"]).default("my-drive"),
+
   GOOGLE_DRIVE_ID: optionalString,
 
   GOOGLE_DRIVE_ROOT_FOLDER_ID: optionalString,
