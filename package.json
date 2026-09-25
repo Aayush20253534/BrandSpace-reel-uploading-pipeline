@@ -33,7 +33,8 @@
     "media:understand": "tsx scripts/media-understand.ts",
     "reel:create": "tsx scripts/reel-create.ts",
     "reel:plan": "tsx scripts/reel-plan.ts",
-    "reel:inspect": "tsx scripts/reel-inspect.ts"
+    "reel:inspect": "tsx scripts/reel-inspect.ts",
+    "reel:render": "tsx scripts/reel-render.ts"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
