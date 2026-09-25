@@ -147,6 +147,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   memberships   Membership[]
+  socialOAuthAttempts SocialOAuthAttempt[]
 }
 
 model Session {
@@ -239,6 +240,7 @@ model Client {
   usageLedger       UsageLedger[]
   driveSyncState    DriveSyncState?
   socialAccounts    SocialAccount[]
+  socialOAuthAttempts SocialOAuthAttempt[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -457,6 +459,23 @@ model SocialAccount {
   @@unique([clientId, platform, providerAccountId])
   @@index([clientId, platform, status])
   @@index([platform, providerAccountId])
+}
+
+model SocialOAuthAttempt {
+  id          String         @id @default(cuid())
+  clientId    String
+  userId      String
+  provider    SocialPlatform @default(INSTAGRAM)
+  stateHash   String         @unique
+  redirectUri String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, provider, createdAt])
+  @@index([userId, expiresAt])
 }
 
 model PublishingJob {

@@ -129,3 +129,5 @@ export function assertSocialAccountSchedulable(
     throw new Error(`SocialAccount ${account.id} credential has expired`);
   }
 }
+
+export * from "./instagram";

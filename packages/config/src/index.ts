@@ -1,4 +1,28 @@
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { loadEnvFile } from "node:process";
 import { z } from "zod";
+
+function findRepositoryEnv(startDirectory: string) {
+  let currentDirectory = resolve(startDirectory);
+
+  for (;;) {
+    const candidate = resolve(currentDirectory, ".env");
+    if (existsSync(candidate)) return candidate;
+
+    const parentDirectory = dirname(currentDirectory);
+    if (parentDirectory === currentDirectory) return null;
+    currentDirectory = parentDirectory;
+  }
+}
+
+const repositoryEnvPath =
+  findRepositoryEnv(process.env.INIT_CWD ?? process.cwd()) ??
+  findRepositoryEnv(process.cwd());
+
+if (repositoryEnvPath) {
+  loadEnvFile(repositoryEnvPath);
+}
 
 const emptyStringToUndefined = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
@@ -41,6 +65,17 @@ const schema = z.object({
   REDIS_URL: optionalUrl,
 
   SOCIAL_TOKEN_ENCRYPTION_KEY: optionalString,
+
+  META_APP_ID: optionalString,
+
+  META_APP_SECRET: optionalString,
+
+  META_INSTAGRAM_REDIRECT_URI: optionalUrl,
+
+  META_GRAPH_VERSION: z
+    .string()
+    .regex(/^v\d+\.\d+$/)
+    .default("v26.0"),
 
   GOOGLE_DRIVE_MODE: z.enum(["my-drive", "shared-drive"]).default("my-drive"),
 
