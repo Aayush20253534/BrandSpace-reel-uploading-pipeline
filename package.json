@@ -24,7 +24,9 @@
     "db:studio": "npm run db:studio --workspace=@forge/database",
     "drive:check": "tsx scripts/drive-check.ts",
     "drive:auth": "tsx scripts/drive-auth.ts",
-    "drive:ingest": "tsx scripts/drive-ingest.ts"
+    "drive:ingest": "tsx scripts/drive-ingest.ts",
+    "media:check": "tsx scripts/media-check.ts",
+    "media:analyze": "tsx scripts/media-analyze.ts"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
