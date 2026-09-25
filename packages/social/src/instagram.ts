@@ -23,6 +23,43 @@ export interface InstagramOAuthResult {
   expiresInSeconds: number;
 }
 
+export interface InstagramTokenRefreshResult {
+  accessToken: string;
+  tokenType: string | null;
+  expiresInSeconds: number;
+}
+
+export class InstagramProviderError extends Error {
+  readonly httpStatus: number;
+  readonly providerCode: number | null;
+  readonly providerSubcode: number | null;
+  readonly providerType: string | null;
+
+  constructor(
+    message: string,
+    details: {
+      httpStatus: number;
+      providerCode?: number | null;
+      providerSubcode?: number | null;
+      providerType?: string | null;
+    },
+  ) {
+    super(message);
+    this.name = "InstagramProviderError";
+    this.httpStatus = details.httpStatus;
+    this.providerCode = details.providerCode ?? null;
+    this.providerSubcode = details.providerSubcode ?? null;
+    this.providerType = details.providerType ?? null;
+  }
+}
+
+export class InstagramAccountMismatchError extends Error {
+  constructor() {
+    super("Instagram credential resolved to a different professional account");
+    this.name = "InstagramAccountMismatchError";
+  }
+}
+
 type FetchLike = typeof fetch;
 type JsonRecord = Record<string, unknown>;
 
@@ -48,14 +85,31 @@ async function readJson(response: Response, operation: string) {
   }
 
   if (!response.ok) {
-    const providerMessage =
-      isRecord(payload) &&
-      isRecord(payload.error) &&
-      readString(payload.error.message);
-    throw new Error(
+    const providerError =
+      isRecord(payload) && isRecord(payload.error) ? payload.error : null;
+    const providerMessage = providerError
+      ? readString(providerError.message)
+      : null;
+    const providerCode =
+      providerError && typeof providerError.code === "number"
+        ? providerError.code
+        : null;
+    const providerSubcode =
+      providerError && typeof providerError.error_subcode === "number"
+        ? providerError.error_subcode
+        : null;
+    const providerType = providerError ? readString(providerError.type) : null;
+
+    throw new InstagramProviderError(
       providerMessage
         ? `${operation} failed (${response.status}): ${providerMessage}`
         : `${operation} failed with HTTP ${response.status}`,
+      {
+        httpStatus: response.status,
+        providerCode,
+        providerSubcode,
+        providerType,
+      },
     );
   }
 
@@ -174,6 +228,40 @@ async function exchangeLongLivedToken(
   return { accessToken, expiresIn, tokenType };
 }
 
+export async function refreshInstagramLongLivedToken(
+  accessToken: string,
+  fetchImpl: FetchLike = fetch,
+): Promise<InstagramTokenRefreshResult> {
+  const token = accessToken.trim();
+  if (!token) throw new Error("Instagram access token is required");
+
+  const url = new URL("https://graph.instagram.com/refresh_access_token");
+  url.searchParams.set("grant_type", "ig_refresh_token");
+  url.searchParams.set("access_token", token);
+
+  const response = await fetchImpl(url, {
+    method: "GET",
+    headers: { accept: "application/json" },
+    cache: "no-store",
+  });
+  const payload = await readJson(response, "Instagram token refresh");
+
+  const refreshedAccessToken = readString(payload.access_token);
+  const expiresIn = readNumber(payload.expires_in);
+  const tokenType = readString(payload.token_type);
+  if (!refreshedAccessToken || !expiresIn || expiresIn <= 0) {
+    throw new Error(
+      "Instagram token refresh omitted access_token or expires_in",
+    );
+  }
+
+  return {
+    accessToken: refreshedAccessToken,
+    tokenType,
+    expiresInSeconds: expiresIn,
+  };
+}
+
 async function fetchProfile(
   graphVersion: string,
   accessToken: string,
@@ -211,6 +299,52 @@ async function fetchProfile(
   }
 
   return { userId, appScopedId, username, name };
+}
+
+export async function verifyInstagramAccessToken(
+  graphVersion: string,
+  accessToken: string,
+  expectedProviderAccountId: string,
+  fetchImpl: FetchLike = fetch,
+) {
+  const expectedId = expectedProviderAccountId.trim();
+  if (!expectedId) {
+    throw new Error("Expected Instagram provider account id is required");
+  }
+
+  const profile = await fetchProfile(
+    normalizeInstagramGraphVersion(graphVersion),
+    accessToken,
+    fetchImpl,
+  );
+  if (profile.userId !== expectedId) {
+    throw new InstagramAccountMismatchError();
+  }
+
+  return {
+    providerAccountId: profile.userId,
+    username: profile.username,
+    displayName: profile.name,
+  };
+}
+
+export function isInstagramReauthenticationError(error: unknown) {
+  if (error instanceof InstagramAccountMismatchError) return true;
+  if (!(error instanceof InstagramProviderError)) return false;
+
+  return (
+    error.httpStatus === 401 ||
+    error.providerCode === 190 ||
+    error.providerCode === 10 ||
+    error.providerCode === 200
+  );
+}
+
+export function isInstagramTransientProviderError(error: unknown) {
+  return (
+    error instanceof InstagramProviderError &&
+    (error.httpStatus === 429 || error.httpStatus >= 500)
+  );
 }
 
 export async function completeInstagramOAuth(

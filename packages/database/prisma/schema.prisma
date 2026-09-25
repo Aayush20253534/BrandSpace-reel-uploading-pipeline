@@ -448,8 +448,14 @@ model SocialAccount {
   scopes                String[]
   accessTokenCiphertext String?
   tokenExpiresAt        DateTime?
+  tokenIssuedAt         DateTime?
   connectedAt           DateTime?
   lastVerifiedAt        DateTime?
+  lastRefreshAttemptAt  DateTime?
+  lastRefreshedAt       DateTime?
+  tokenRefreshLockedAt  DateTime?
+  lastAuthErrorCode     String?
+  lastAuthErrorMessage  String?
   metadata              Json?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
@@ -459,6 +465,8 @@ model SocialAccount {
   @@unique([clientId, platform, providerAccountId])
   @@index([clientId, platform, status])
   @@index([platform, providerAccountId])
+  @@index([platform, status, tokenExpiresAt])
+  @@index([platform, status, tokenRefreshLockedAt])
 }
 
 model SocialOAuthAttempt {

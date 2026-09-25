@@ -130,4 +130,4 @@ export function assertSocialAccountSchedulable(
   }
 }
 
-export * from "./instagram";
+export * from "./instagram.js";

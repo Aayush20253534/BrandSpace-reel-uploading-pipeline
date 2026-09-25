@@ -4,9 +4,10 @@
 
 Phase 11 — Instagram Distribution
 
-Status: Phases 1–10 and Phase 11.1 are implemented and validated. Phase 11.2 adds the
-server-side Instagram Login OAuth flow, durable one-time state, long-lived token
-exchange, profile/permission verification and encrypted credential rotation.
+Status: Phases 1–10, Phase 11.1 and Phase 11.2 are implemented and validated. Phase
+11.3 adds automatic long-lived Instagram token maintenance, refresh leasing,
+provider-error classification, reauthentication state transitions and lifecycle
+observability without exposing plaintext credentials.
 
 ## Completed
 
@@ -22,13 +23,14 @@ exchange, profile/permission verification and encrypted credential rotation.
 - Phase 10 durable BullMQ scheduling, PostgreSQL-to-Redis reconciliation, retry
   bookkeeping and worker-side atomic dispatch claiming.
 - Phase 11.1 tenant-scoped SocialAccount records and AES-256-GCM credential storage.
+- Phase 11.2 server-side Instagram Login OAuth, durable one-time state, long-lived token
+  exchange, professional-account verification and encrypted credential rotation.
 - Google Drive OAuth development path and Shared Drive-aware storage adapter.
 - AI provenance and usage accounting for model-backed stages.
 - Idempotent planning, rendering, QA, approval, scheduling and queue reconciliation.
 
 ## Intentionally deferred
 
-- Automatic Instagram long-lived token refresh scheduling.
 - Temporary public media delivery for Meta ingestion.
 - Instagram container creation/status polling and `media_publish`.
 - Full operations dashboard.
@@ -49,11 +51,11 @@ exchange, profile/permission verification and encrypted credential rotation.
 7. Configure Meta app credentials, the exact Instagram OAuth redirect URI and the
    social token-encryption key.
 8. Connect an Instagram professional account through the server-side OAuth endpoint.
-9. Run the full verification suite before each phase commit.
+9. Run the worker so due Instagram credentials are refreshed automatically.
+10. Run the full verification suite before each phase commit.
 
 ## Next phase
 
-Phase 11.3 — Instagram token lifecycle:
-refresh long-lived Instagram tokens before expiry, detect revoked/invalid credentials,
-move affected SocialAccounts to `NEEDS_REAUTH`, and add operator/worker observability
-without exposing plaintext tokens.
+Phase 11.4 — Instagram media delivery foundation:
+provide short-lived public HTTPS delivery for generated reel artifacts so Meta can
+ingest media without changing Google Drive's role as the canonical binary store.

@@ -9,6 +9,7 @@ import {
   type PublishingDispatchJob,
 } from "@forge/queue";
 import { APP_NAME, PHASE } from "@forge/shared";
+import { startInstagramTokenLifecycle } from "./instagram-token-lifecycle.js";
 
 const logger = createLogger("worker");
 
@@ -21,6 +22,8 @@ logger.info("worker_started", {
   phase: PHASE,
   environment: env.NODE_ENV,
 });
+
+const instagramTokenLifecycle = startInstagramTokenLifecycle();
 
 let publishingWorker: ReturnType<typeof createPublishingWorker> | null = null;
 let publishingQueueClient: ReturnType<
@@ -278,6 +281,7 @@ const shutdown = async (signal: string) => {
 
   try {
     if (reconcileTimer) clearInterval(reconcileTimer);
+    instagramTokenLifecycle.stop();
     await publishingWorker?.close();
     await publishingQueueClient?.close();
     await prisma.$disconnect();

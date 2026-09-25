@@ -5,7 +5,12 @@ import {
   completeInstagramOAuth,
   hashInstagramOAuthState,
   INSTAGRAM_BUSINESS_LOGIN_SCOPES,
+  InstagramProviderError,
+  isInstagramReauthenticationError,
+  isInstagramTransientProviderError,
   normalizeInstagramGraphVersion,
+  refreshInstagramLongLivedToken,
+  verifyInstagramAccessToken,
 } from "./instagram";
 
 const config = {
@@ -131,4 +136,104 @@ test("OAuth completion rejects a profile that does not match the authorization u
     completeInstagramOAuth(config, "authorization-code", fetchImpl),
     /does not match the verified profile/,
   );
+});
+
+test("OAuth accepts separate authorization id and professional account user_id", async () => {
+  const fetchImpl: typeof fetch = async (input) => {
+    const url = input instanceof URL ? input.toString() : String(input);
+
+    if (url === "https://api.instagram.com/oauth/access_token") {
+      return Response.json({
+        access_token: "short-token",
+        user_id: "app-scoped-id",
+      });
+    }
+    if (url.startsWith("https://graph.instagram.com/access_token?")) {
+      return Response.json({
+        access_token: "long-token",
+        token_type: "bearer",
+        expires_in: 5_184_000,
+      });
+    }
+    if (url.includes("/v26.0/me?fields=")) {
+      return Response.json({
+        id: "app-scoped-id",
+        user_id: "17841444506449453",
+        username: "thakur29aayush",
+        name: "Aayush Thakur",
+      });
+    }
+    return new Response(null, { status: 404 });
+  };
+
+  const result = await completeInstagramOAuth(
+    config,
+    "authorization-code",
+    fetchImpl,
+  );
+
+  assert.equal(result.authorizationUserId, "app-scoped-id");
+  assert.equal(result.providerAccountId, "17841444506449453");
+});
+
+test("refreshes a long-lived Instagram token through the provider refresh endpoint", async () => {
+  const calls: URL[] = [];
+  const fetchImpl: typeof fetch = async (input) => {
+    const url = input instanceof URL ? input : new URL(String(input));
+    calls.push(url);
+    return Response.json({
+      access_token: "rotated-long-token",
+      token_type: "bearer",
+      expires_in: 5_184_000,
+    });
+  };
+
+  const result = await refreshInstagramLongLivedToken(
+    "current-long-token",
+    fetchImpl,
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.pathname, "/refresh_access_token");
+  assert.equal(calls[0]?.searchParams.get("grant_type"), "ig_refresh_token");
+  assert.equal(
+    calls[0]?.searchParams.get("access_token"),
+    "current-long-token",
+  );
+  assert.equal(result.accessToken, "rotated-long-token");
+  assert.equal(result.expiresInSeconds, 5_184_000);
+});
+
+test("verifies refreshed credentials against the durable professional account id", async () => {
+  const profile = await verifyInstagramAccessToken(
+    "v26.0",
+    "refreshed-token",
+    "17841444506449453",
+    async () =>
+      Response.json({
+        id: "app-scoped-id",
+        user_id: "17841444506449453",
+        username: "thakur29aayush",
+        name: "Aayush Thakur",
+      }),
+  );
+
+  assert.equal(profile.providerAccountId, "17841444506449453");
+  assert.equal(profile.username, "thakur29aayush");
+});
+
+test("classifies invalid-token and transient provider failures separately", () => {
+  const invalidToken = new InstagramProviderError("invalid token", {
+    httpStatus: 400,
+    providerCode: 190,
+    providerType: "OAuthException",
+  });
+  const throttled = new InstagramProviderError("rate limited", {
+    httpStatus: 429,
+  });
+
+  assert.equal(isInstagramReauthenticationError(invalidToken), true);
+  assert.equal(isInstagramTransientProviderError(invalidToken), false);
+  assert.equal(isInstagramReauthenticationError(throttled), false);
+  assert.equal(isInstagramTransientProviderError(throttled), true);
 });
