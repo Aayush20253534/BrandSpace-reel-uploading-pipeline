@@ -4,8 +4,9 @@
 
 Phase 10 — Queue and Scheduling
 
-Status: Phases 1–9 are implemented and validated through live acceptance. Approved reel
-versions can now enter the durable scheduling boundary before distribution.
+Status: Phases 1–9 and Phase 10.1 are implemented and validated through live
+acceptance. Phase 10.2 adds automatic PostgreSQL-to-BullMQ reconciliation, retry
+bookkeeping, failed queue-job repair and queue observability before Meta distribution.
 
 ## Completed
 
@@ -18,9 +19,11 @@ versions can now enter the durable scheduling boundary before distribution.
 - Phase 7 deterministic FFmpeg rendering and durable generated reel artifacts.
 - Phase 8 technical QA and deterministic creative/brand-policy QA.
 - Phase 9 durable human approval requests and atomic decisions.
+- Phase 10.1 PostgreSQL-backed publishing intents with BullMQ delayed delivery,
+  deterministic queue IDs and worker-side atomic dispatch claiming.
 - Google Drive OAuth development path and Shared Drive-aware storage adapter.
 - AI provenance and usage accounting for model-backed stages.
-- Idempotent planning, rendering, QA, and approval acceptance paths.
+- Idempotent planning, rendering, QA, approval and scheduling acceptance paths.
 
 ## Intentionally deferred
 
@@ -30,6 +33,7 @@ versions can now enter the durable scheduling boundary before distribution.
 - Source-revision-aware invalidation for cached media intelligence.
 - Provider retry/backoff policy and transactional AI bookkeeping hardening.
 - Subjective AI-assisted creative scoring.
+- Version-bound approval schema hardening.
 
 ## Current operator setup
 
@@ -39,10 +43,12 @@ versions can now enter the durable scheduling boundary before distribution.
 4. Run technical and creative QA.
 5. Complete human approval where required.
 6. Configure Redis and schedule approved publishing work.
-7. Run the full verification suite before each phase commit.
+7. Run or observe queue reconciliation and dispatch.
+8. Run the full verification suite before each phase commit.
 
 ## Next phase
 
-Phase 10 — Queue and Scheduling:
-use PostgreSQL-backed publishing intents with BullMQ delayed delivery, deterministic
-queue IDs, retries, and worker-side atomic dispatch claiming.
+Phase 11 — Instagram distribution:
+introduce tenant-scoped SocialAccount records, secure Meta/Instagram authorization,
+temporary public media delivery, container creation/status polling, media publishing,
+verification, retries and multi-client isolation.

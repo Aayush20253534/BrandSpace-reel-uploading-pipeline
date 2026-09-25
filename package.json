@@ -38,7 +38,8 @@
     "reel:qa": "tsx scripts/reel-qa.ts",
     "reel:qa:creative": "tsx scripts/reel-creative-qa.ts",
     "reel:approval": "tsx scripts/reel-approval.ts",
-    "reel:schedule": "tsx scripts/reel-schedule.ts"
+    "reel:schedule": "tsx scripts/reel-schedule.ts",
+    "reel:queue:reconcile": "tsx scripts/reel-queue-reconcile.ts"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
