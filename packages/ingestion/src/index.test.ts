@@ -67,6 +67,7 @@ test("full scan is idempotent and skips non-media", async () => {
     getStartPageToken: async () => "token-1",
     downloadToFile: async () => undefined,
     uploadFromFile: async () => video,
+    createFolder: async () => folder,
   };
 
   const first = await ingestClientDriveFolder({
