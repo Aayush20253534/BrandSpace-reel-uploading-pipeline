@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@forge/database": "*",
-    "@forge/storage": "*"
+    "@forge/storage": "*",
+    "openai": "^6.16.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
