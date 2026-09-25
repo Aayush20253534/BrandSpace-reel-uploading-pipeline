@@ -444,3 +444,269 @@ export async function preprocessMediaAsset(input: {
     await rm(workDir, { recursive: true, force: true });
   }
 }
+
+export interface PreparedFrame {
+  index: number;
+  timestampMs: number;
+  path: string;
+}
+
+export interface PreparedMediaWorkspace {
+  mediaAssetId: string;
+  sourcePath: string;
+  probe: MediaProbeResult;
+  frames: PreparedFrame[];
+  audioPath: string | null;
+}
+
+export interface PrepareMediaOptions {
+  frameCount?: number;
+  maxFrameWidth?: number;
+  audioSampleRate?: number;
+  timeoutMs?: number;
+}
+
+export function representativeFrameTimestamps(
+  durationMs: number,
+  requestedCount = 4,
+): number[] {
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return [0];
+  const count = Math.max(1, Math.min(8, Math.trunc(requestedCount)));
+  if (durationMs < 1_000 || count === 1)
+    return [Math.max(0, Math.round(durationMs / 2))];
+
+  const fractions =
+    count === 4
+      ? [0.1, 0.35, 0.6, 0.85]
+      : Array.from({ length: count }, (_, index) => (index + 1) / (count + 1));
+  const maximum = Math.max(0, durationMs - 100);
+  return [
+    ...new Set(
+      fractions.map((fraction) =>
+        Math.min(maximum, Math.max(0, Math.round(durationMs * fraction))),
+      ),
+    ),
+  ];
+}
+
+export async function extractRepresentativeFrames(input: {
+  sourcePath: string;
+  destinationDir: string;
+  durationMs: number;
+  toolchain: MediaToolchain;
+  frameCount?: number;
+  maxWidth?: number;
+  timeoutMs?: number;
+}): Promise<PreparedFrame[]> {
+  const timestamps = representativeFrameTimestamps(
+    input.durationMs,
+    input.frameCount ?? 4,
+  );
+  const maxWidth = Math.max(
+    320,
+    Math.min(1920, Math.trunc(input.maxWidth ?? 1280)),
+  );
+  const frames: PreparedFrame[] = [];
+
+  for (const [index, timestampMs] of timestamps.entries()) {
+    const outputPath = join(
+      input.destinationDir,
+      `frame-${String(index + 1).padStart(2, "0")}.jpg`,
+    );
+    await runCaptured(
+      input.toolchain.ffmpegPath,
+      [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostdin",
+        "-ss",
+        (timestampMs / 1000).toFixed(3),
+        "-i",
+        input.sourcePath,
+        "-frames:v",
+        "1",
+        "-vf",
+        `scale='min(${maxWidth},iw)':-2`,
+        "-q:v",
+        "3",
+        "-y",
+        outputPath,
+      ],
+      input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    );
+    const outputStat = await stat(outputPath);
+    if (!outputStat.isFile() || outputStat.size <= 0) {
+      throw new MediaToolError(
+        `FFmpeg did not produce representative frame ${index + 1}`,
+        "FRAME_EXTRACTION_EMPTY",
+      );
+    }
+    frames.push({ index, timestampMs, path: outputPath });
+  }
+
+  return frames;
+}
+
+export async function extractNormalizedAudio(input: {
+  sourcePath: string;
+  destinationPath: string;
+  toolchain: MediaToolchain;
+  sampleRate?: number;
+  timeoutMs?: number;
+}): Promise<string> {
+  const sampleRate = Math.max(
+    8_000,
+    Math.min(48_000, Math.trunc(input.sampleRate ?? 16_000)),
+  );
+  await runCaptured(
+    input.toolchain.ffmpegPath,
+    [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-nostdin",
+      "-i",
+      input.sourcePath,
+      "-vn",
+      "-ac",
+      "1",
+      "-ar",
+      String(sampleRate),
+      "-c:a",
+      "pcm_s16le",
+      "-y",
+      input.destinationPath,
+    ],
+    input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+  );
+  const outputStat = await stat(input.destinationPath);
+  if (!outputStat.isFile() || outputStat.size <= 44) {
+    throw new MediaToolError(
+      "FFmpeg did not produce normalized audio",
+      "AUDIO_EXTRACTION_EMPTY",
+    );
+  }
+  return input.destinationPath;
+}
+
+export async function withPreparedMediaAsset<T>(input: {
+  mediaAssetId: string;
+  storage: MediaStorage;
+  database: Pick<MediaIntelligenceDatabase, "mediaAsset">;
+  toolchain: MediaToolchain;
+  options?: PrepareMediaOptions;
+  consume: (workspace: PreparedMediaWorkspace) => Promise<T>;
+}): Promise<T> {
+  const asset = await input.database.mediaAsset.findUnique({
+    where: { id: input.mediaAssetId },
+    select: {
+      id: true,
+      driveFileId: true,
+      name: true,
+      mimeType: true,
+      kind: true,
+    },
+  });
+
+  if (!asset) {
+    throw new Error(`MediaAsset not found: ${input.mediaAssetId}`);
+  }
+
+  if (!["RAW_VIDEO", "AUDIO"].includes(asset.kind)) {
+    throw new Error(
+      `MediaAsset ${asset.id} kind ${asset.kind} cannot be prepared`,
+    );
+  }
+
+  const workDir = await mkdtemp(join(tmpdir(), "brandspace-prepared-"));
+
+  const sourcePath = join(
+    workDir,
+    `source${extensionFor(asset.name, asset.mimeType)}`,
+  );
+
+  try {
+    await input.storage.downloadToFile(asset.driveFileId, sourcePath);
+
+    const sourceStat = await stat(sourcePath);
+
+    if (!sourceStat.isFile() || sourceStat.size <= 0) {
+      throw new MediaToolError(
+        "Downloaded media is empty or not a regular file",
+        "MEDIA_DOWNLOAD_INVALID",
+      );
+    }
+
+    const probe = await probeMedia(sourcePath, input.toolchain);
+
+    if (asset.kind === "RAW_VIDEO" && !probe.hasVideo) {
+      throw new MediaToolError(
+        "Expected a video stream but ffprobe found none",
+        "VIDEO_STREAM_MISSING",
+      );
+    }
+
+    if (asset.kind === "AUDIO" && !probe.hasAudio) {
+      throw new MediaToolError(
+        "Expected an audio stream but ffprobe found none",
+        "AUDIO_STREAM_MISSING",
+      );
+    }
+
+    const frames =
+      probe.hasVideo && probe.durationMs !== null
+        ? await extractRepresentativeFrames({
+            sourcePath,
+            destinationDir: workDir,
+            durationMs: probe.durationMs,
+            toolchain: input.toolchain,
+
+            ...(input.options?.frameCount !== undefined
+              ? { frameCount: input.options.frameCount }
+              : {}),
+
+            ...(input.options?.maxFrameWidth !== undefined
+              ? { maxWidth: input.options.maxFrameWidth }
+              : {}),
+
+            ...(input.options?.timeoutMs !== undefined
+              ? { timeoutMs: input.options.timeoutMs }
+              : {}),
+          })
+        : [];
+
+    const audioPath = probe.hasAudio
+      ? join(workDir, "audio-16khz-mono.wav")
+      : null;
+
+    if (audioPath) {
+      await extractNormalizedAudio({
+        sourcePath,
+        destinationPath: audioPath,
+        toolchain: input.toolchain,
+
+        ...(input.options?.audioSampleRate !== undefined
+          ? { sampleRate: input.options.audioSampleRate }
+          : {}),
+
+        ...(input.options?.timeoutMs !== undefined
+          ? { timeoutMs: input.options.timeoutMs }
+          : {}),
+      });
+    }
+
+    return await input.consume({
+      mediaAssetId: asset.id,
+      sourcePath,
+      probe,
+      frames,
+      audioPath,
+    });
+  } finally {
+    await rm(workDir, {
+      recursive: true,
+      force: true,
+    });
+  }
+}

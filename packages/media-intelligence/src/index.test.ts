@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { probeMedia } from "./index";
+import { probeMedia, representativeFrameTimestamps } from "./index";
 
-test("probeMedia parses deterministic ffprobe JSON", async () => {
-  // Parser behavior is integration-tested through the CLI smoke test because
-  // subprocess execution is deliberately kept behind the real ffprobe binary.
+test("probeMedia is exposed for deterministic ffprobe probing", () => {
   assert.equal(typeof probeMedia, "function");
+});
+
+test("representativeFrameTimestamps uses stable quartile-like positions", () => {
+  assert.deepEqual(
+    representativeFrameTimestamps(35_633, 4),
+    [3563, 12472, 21380, 30288],
+  );
+});
+
+test("representativeFrameTimestamps stays bounded for short media", () => {
+  assert.deepEqual(representativeFrameTimestamps(500, 4), [250]);
+  assert.deepEqual(representativeFrameTimestamps(10_000, 1), [5000]);
 });
