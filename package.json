@@ -35,7 +35,8 @@
     "reel:plan": "tsx scripts/reel-plan.ts",
     "reel:inspect": "tsx scripts/reel-inspect.ts",
     "reel:render": "tsx scripts/reel-render.ts",
-    "reel:qa": "tsx scripts/reel-qa.ts"
+    "reel:qa": "tsx scripts/reel-qa.ts",
+    "reel:qa:creative": "tsx scripts/reel-creative-qa.ts"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

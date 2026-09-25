@@ -92,3 +92,86 @@ export function nextStateAfterQaPass(
 ): "AWAITING_APPROVAL" | "APPROVED" {
   return approvalMode === "AUTO" ? "APPROVED" : "AWAITING_APPROVAL";
 }
+
+export const CREATIVE_QA_VERSION = "creative-qa-v1" as const;
+
+export interface CreativeQaInput {
+  hook: string | null;
+  caption: string | null;
+  cta: string | null;
+  clipPurposes: string[];
+  bannedWords: string[];
+  forbiddenTopics: string[];
+}
+
+export interface CreativeQaCheck {
+  key: string;
+  pass: boolean;
+  detail: string;
+  matches?: string[];
+}
+
+export interface CreativeQaResult {
+  version: typeof CREATIVE_QA_VERSION;
+  pass: boolean;
+  checks: CreativeQaCheck[];
+}
+
+const normalizedTerms = (values: string[]) => [
+  ...new Set(
+    values.map((value) => value.trim().toLocaleLowerCase()).filter(Boolean),
+  ),
+];
+
+export function runCreativeQa(input: CreativeQaInput): CreativeQaResult {
+  const generatedText = [
+    input.hook,
+    input.caption,
+    input.cta,
+    ...input.clipPurposes,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .join("\n")
+    .toLocaleLowerCase();
+
+  const bannedMatches = normalizedTerms(input.bannedWords).filter((term) =>
+    generatedText.includes(term),
+  );
+  const forbiddenMatches = normalizedTerms(input.forbiddenTopics).filter(
+    (term) => generatedText.includes(term),
+  );
+
+  const checks: CreativeQaCheck[] = [
+    {
+      key: "hookPresent",
+      pass: Boolean(input.hook?.trim()),
+      detail: "Blueprint hook must be present",
+    },
+    {
+      key: "clipPurposesPresent",
+      pass:
+        input.clipPurposes.length > 0 &&
+        input.clipPurposes.every((purpose) => Boolean(purpose.trim())),
+      detail: "Every selected clip must have a non-empty creative purpose",
+    },
+    {
+      key: "bannedWords",
+      pass: bannedMatches.length === 0,
+      detail: "Generated reel text must not contain banned brand wording",
+      ...(bannedMatches.length > 0 ? { matches: bannedMatches } : {}),
+    },
+    {
+      key: "forbiddenTopics",
+      pass: forbiddenMatches.length === 0,
+      detail:
+        "Generated reel text must not explicitly contain forbidden topics",
+      ...(forbiddenMatches.length > 0 ? { matches: forbiddenMatches } : {}),
+    },
+  ];
+
+  return {
+    version: CREATIVE_QA_VERSION,
+    pass: checks.every((check) => check.pass),
+    checks,
+  };
+}

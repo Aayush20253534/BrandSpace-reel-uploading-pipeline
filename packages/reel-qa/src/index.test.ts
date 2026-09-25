@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { nextStateAfterQaPass, runTechnicalQa } from "./index";
+import { nextStateAfterQaPass, runCreativeQa, runTechnicalQa } from "./index";
 
 test("passes a valid vertical reel within duration tolerance", () => {
   const result = runTechnicalQa({
@@ -39,4 +39,32 @@ test("routes AUTO approval directly to approved", () => {
   assert.equal(nextStateAfterQaPass("AUTO"), "APPROVED");
   assert.equal(nextStateAfterQaPass("REQUIRED"), "AWAITING_APPROVAL");
   assert.equal(nextStateAfterQaPass("OPTIONAL"), "AWAITING_APPROVAL");
+});
+
+test("passes deterministic creative brand-policy checks", () => {
+  const result = runCreativeQa({
+    hook: "A calmer dental visit starts with the right care",
+    caption: "A short educational reel",
+    cta: "Book a consultation",
+    clipPurposes: ["Introduce the clinician", "Show the treatment environment"],
+    bannedWords: ["guaranteed"],
+    forbiddenTopics: ["politics"],
+  });
+  assert.equal(result.pass, true);
+});
+
+test("flags banned wording and explicitly forbidden topics", () => {
+  const result = runCreativeQa({
+    hook: "Guaranteed political results",
+    caption: null,
+    cta: null,
+    clipPurposes: ["Explain the service"],
+    bannedWords: ["guaranteed"],
+    forbiddenTopics: ["political"],
+  });
+  assert.equal(result.pass, false);
+  assert.deepEqual(
+    result.checks.filter((check) => !check.pass).map((check) => check.key),
+    ["bannedWords", "forbiddenTopics"],
+  );
 });
