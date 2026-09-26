@@ -38,6 +38,9 @@ migration and existing-data review.
   states.
 - Phase 17 version-bound approval request, decision, scheduling and dispatch
   guards, plus a conservative migration for legacy approvals.
+- Phase 17 Instagram connection hardening: transaction-bound OAuth state,
+  encrypted exchange recovery, callback error redaction and database-enforced
+  unique active account ownership across clients.
 
 ## Implemented, awaiting live acceptance
 

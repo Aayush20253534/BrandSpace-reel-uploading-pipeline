@@ -3,24 +3,40 @@ import { env } from "@forge/config";
 import { Prisma, prisma } from "@forge/database";
 import {
   completeInstagramOAuth,
+  decryptSocialToken,
   encryptSocialToken,
   hashInstagramOAuthState,
   parseSocialTokenEncryptionKey,
+  type InstagramOAuthResult,
 } from "@forge/social";
 import { requireRole, requireSession } from "../../../../../lib/auth-session";
 
 const CONNECTION_ROLES = ["OWNER", "ADMIN"] as const;
 
 function providerError(request: NextRequest) {
-  const error = request.nextUrl.searchParams.get("error")?.trim();
-  if (!error) return null;
+  return Boolean(request.nextUrl.searchParams.get("error")?.trim());
+}
 
-  return {
-    error,
-    reason: request.nextUrl.searchParams.get("error_reason")?.trim() ?? null,
-    description:
-      request.nextUrl.searchParams.get("error_description")?.trim() ?? null,
-  };
+function readStagedResult(ciphertext: string, key: string) {
+  const value: unknown = JSON.parse(decryptSocialToken(ciphertext, key));
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid staged Instagram OAuth result");
+  }
+  const result = value as Partial<InstagramOAuthResult>;
+  if (
+    typeof result.accessToken !== "string" ||
+    !result.accessToken ||
+    typeof result.authorizationUserId !== "string" ||
+    typeof result.providerAccountId !== "string" ||
+    typeof result.username !== "string" ||
+    !Array.isArray(result.scopes) ||
+    !result.scopes.every((scope) => typeof scope === "string") ||
+    typeof result.expiresInSeconds !== "number" ||
+    result.expiresInSeconds <= 0
+  ) {
+    throw new Error("Invalid staged Instagram OAuth result");
+  }
+  return result as InstagramOAuthResult;
 }
 
 export async function GET(request: NextRequest) {
@@ -44,6 +60,8 @@ export async function GET(request: NextRequest) {
         redirectUri: true,
         expiresAt: true,
         consumedAt: true,
+        resultCiphertext: true,
+        resultRecordedAt: true,
         client: {
           select: {
             id: true,
@@ -75,41 +93,25 @@ export async function GET(request: NextRequest) {
 
     await requireRole(attempt.client.organizationId, CONNECTION_ROLES);
 
-    const consumed = await prisma.socialOAuthAttempt.updateMany({
-      where: {
-        id: attempt.id,
-        consumedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      data: { consumedAt: new Date() },
-    });
-    if (consumed.count !== 1) {
+    if (providerError(request)) {
       return NextResponse.json(
-        { error: "Instagram OAuth state has already been consumed" },
-        { status: 409 },
-      );
-    }
-
-    const denied = providerError(request);
-    if (denied) {
-      return NextResponse.json(
-        {
-          error: "Instagram authorization was not completed",
-          provider: denied,
-        },
+        { error: "Instagram authorization was not completed" },
         { status: 400 },
       );
     }
 
     const code = request.nextUrl.searchParams.get("code")?.trim();
-    if (!code) {
+    if (!code && !attempt.resultCiphertext) {
       return NextResponse.json(
         { error: "Missing Instagram authorization code" },
         { status: 400 },
       );
     }
 
-    if (!env.META_APP_ID || !env.META_APP_SECRET) {
+    if (
+      !attempt.resultCiphertext &&
+      (!env.META_APP_ID || !env.META_APP_SECRET)
+    ) {
       return NextResponse.json(
         { error: "Meta Instagram application credentials are not configured" },
         { status: 503 },
@@ -123,27 +125,72 @@ export async function GET(request: NextRequest) {
     }
     parseSocialTokenEncryptionKey(env.SOCIAL_TOKEN_ENCRYPTION_KEY);
 
-    const oauth = await completeInstagramOAuth(
-      {
-        appId: env.META_APP_ID,
-        appSecret: env.META_APP_SECRET,
-        redirectUri: attempt.redirectUri,
-        graphVersion: env.META_GRAPH_VERSION,
-      },
-      code,
-    );
+    let oauth: InstagramOAuthResult;
+    let resultRecordedAt: Date;
+    if (attempt.resultCiphertext && attempt.resultRecordedAt) {
+      oauth = readStagedResult(
+        attempt.resultCiphertext,
+        env.SOCIAL_TOKEN_ENCRYPTION_KEY,
+      );
+      resultRecordedAt = attempt.resultRecordedAt;
+    } else {
+      oauth = await completeInstagramOAuth(
+        {
+          appId: env.META_APP_ID!,
+          appSecret: env.META_APP_SECRET!,
+          redirectUri: attempt.redirectUri,
+          graphVersion: env.META_GRAPH_VERSION,
+        },
+        code!,
+      );
+      resultRecordedAt = new Date();
+      const staged = await prisma.socialOAuthAttempt.updateMany({
+        where: {
+          id: attempt.id,
+          consumedAt: null,
+          expiresAt: { gt: resultRecordedAt },
+          resultCiphertext: null,
+        },
+        data: {
+          resultCiphertext: encryptSocialToken(
+            JSON.stringify(oauth),
+            env.SOCIAL_TOKEN_ENCRYPTION_KEY,
+          ),
+          resultRecordedAt,
+        },
+      });
+      if (staged.count !== 1) {
+        throw new Error("INSTAGRAM_OAUTH_STATE_CONSUMED");
+      }
+    }
 
     const ciphertext = encryptSocialToken(
       oauth.accessToken,
       env.SOCIAL_TOKEN_ENCRYPTION_KEY,
     );
-    const now = new Date();
     const tokenExpiresAt = new Date(
-      now.getTime() + oauth.expiresInSeconds * 1_000,
+      resultRecordedAt.getTime() + oauth.expiresInSeconds * 1_000,
     );
+    const now = new Date();
 
     const account = await prisma.$transaction(
       async (tx) => {
+        const consumed = await tx.socialOAuthAttempt.updateMany({
+          where: {
+            id: attempt.id,
+            consumedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: {
+            consumedAt: new Date(),
+            resultCiphertext: null,
+            resultRecordedAt: null,
+          },
+        });
+        if (consumed.count !== 1) {
+          throw new Error("INSTAGRAM_OAUTH_STATE_CONSUMED");
+        }
+
         const assignedElsewhere = await tx.socialAccount.findFirst({
           where: {
             platform: "INSTAGRAM",
@@ -282,8 +329,29 @@ export async function GET(request: NextRequest) {
         { status: 409 },
       );
     }
+    if (message === "INSTAGRAM_OAUTH_STATE_CONSUMED") {
+      return NextResponse.json(
+        { error: "Instagram OAuth state has already been consumed" },
+        { status: 409 },
+      );
+    }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "This Instagram account is already connected" },
+        { status: 409 },
+      );
+    }
 
-    console.error("[instagram:oauth:callback] failed", error);
+    console.error("[instagram:oauth:callback] failed", {
+      type: error instanceof Error ? error.name : "UnknownError",
+      code:
+        error instanceof Prisma.PrismaClientKnownRequestError
+          ? error.code
+          : null,
+    });
     return NextResponse.json(
       { error: "Instagram account connection failed" },
       { status: 502 },

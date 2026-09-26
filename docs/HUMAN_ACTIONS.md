@@ -55,6 +55,29 @@ What phase it blocks: Live acceptance of 11.4 and real Instagram publication in
 
 ## Non-blocking production setup
 
+### Review active Instagram account ownership before migration
+
+Why: The new database index prevents two clients from holding an active
+connection to the same Instagram account. Existing duplicate active rows must
+be reconciled by the account owners before the index can be installed.
+
+Exact location: In the staging database SQL console, then the production
+database SQL console before `npm run db:deploy` for migration
+`20260926020000_unique_active_social_account_owner`.
+
+```sql
+SELECT "platform", "providerAccountId", array_agg("clientId" ORDER BY "clientId") AS "clientIds"
+FROM "SocialAccount"
+WHERE "status" IN ('CONNECTED', 'NEEDS_REAUTH')
+GROUP BY "platform", "providerAccountId"
+HAVING COUNT(*) > 1;
+```
+
+Expected result: No rows. If rows appear, identify the intended client owner
+and disconnect the other connections through an audited operator process. The
+migration deliberately stops rather than choosing an owner. Apply and verify in
+staging before production. No live database migration has been run here.
+
 ### Deploy and review the version-bound approval migration
 
 Why: Existing approval records may lack a reliable version link. The migration

@@ -483,6 +483,8 @@ model SocialOAuthAttempt {
   redirectUri String
   expiresAt   DateTime
   consumedAt  DateTime?
+  resultCiphertext String?
+  resultRecordedAt DateTime?
   createdAt   DateTime       @default(now())
   client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
