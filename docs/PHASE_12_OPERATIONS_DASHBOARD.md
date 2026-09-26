@@ -31,6 +31,14 @@ client-scoped state checks. It records the operator, queue result and job ID in
 the audit timeline. It does not transition `NEEDS_ATTENTION` or replay an
 ambiguous provider publish.
 
+Owners, administrators, content managers and reviewers can approve, request
+revision or reject a pending approval for the active version. The form links to
+the generated reel in the client's canonical Drive store. It appears only while
+that artifact is ready. A shared domain transaction repeats session actor,
+organization/client, version and artifact checks on submit; the CLI uses that
+same transaction. Decisions are audited. Viewers, editors and analysts cannot
+submit them.
+
 ## Verification and limits
 
 Run `npm run lint -w @forge/web`, `npm run typecheck -w @forge/web` and

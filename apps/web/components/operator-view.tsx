@@ -3,6 +3,7 @@ import { env } from "@forge/config";
 import { prisma } from "@forge/database";
 import { isSafeToReconcilePublishingJob } from "@forge/queue";
 import { reconcilePublishingJob } from "../app/dashboard/actions";
+import { ApprovalDecisionForm } from "./approval-decision-form";
 import {
   operatorHref,
   type OperatorContext,
@@ -644,6 +645,11 @@ export async function OperatorView({
       break;
     }
     case "approvals": {
+      const canDecide =
+        context.membership !== null &&
+        ["OWNER", "ADMIN", "CONTENT_MANAGER", "REVIEWER"].includes(
+          context.membership.role,
+        );
       const result = takePage(
         await prisma.approval.findMany({
           where: { reelProject: { clientId } },
@@ -656,23 +662,42 @@ export async function OperatorView({
             requestedAt: true,
             decidedAt: true,
             note: true,
-            reelVersion: { select: { version: true } },
+            reelVersion: {
+              select: { version: true, renderedAssetId: true },
+            },
             reelProject: {
-              select: { title: true, state: true },
+              select: { title: true, state: true, activeVersion: true },
             },
           },
         }),
       );
       hasNext = result.hasNext;
+      const artifactIds = result.items
+        .map((item) => item.reelVersion?.renderedAssetId)
+        .filter((id): id is string => Boolean(id));
+      const artifacts = await prisma.mediaAsset.findMany({
+        where: {
+          id: { in: artifactIds },
+          clientId,
+          kind: "GENERATED_REEL",
+          state: "READY",
+        },
+        select: { id: true, driveFileId: true },
+      });
+      const artifactById = new Map(
+        artifacts.map((artifact) => [artifact.id, artifact.driveFileId]),
+      );
       table = (
         <Table
           columns={[
             "Project",
             "Version",
+            "Artifact",
             "Decision",
             "Note",
             "Requested",
             "Decided",
+            ...(canDecide ? ["Action"] : []),
           ]}
           empty="Review requests appear here when a reel reaches human approval."
           rows={result.items.map((item) => ({
@@ -682,6 +707,20 @@ export async function OperatorView({
                 {item.reelProject.title}
               </span>,
               item.reelVersion ? `v${item.reelVersion.version}` : "Unbound",
+              item.reelVersion?.renderedAssetId &&
+              artifactById.has(item.reelVersion.renderedAssetId) ? (
+                <a
+                  key="artifact"
+                  href={`https://drive.google.com/file/d/${encodeURIComponent(artifactById.get(item.reelVersion.renderedAssetId)!)}/view`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-[#0f6b64] underline-offset-2 hover:underline"
+                >
+                  Review reel ↗
+                </a>
+              ) : (
+                "—"
+              ),
               <Badge key="state" value={item.decision} />,
               <span
                 key="note"
@@ -692,6 +731,27 @@ export async function OperatorView({
               </span>,
               date(item.requestedAt, timezone),
               date(item.decidedAt, timezone),
+              ...(canDecide
+                ? [
+                    item.decision === "PENDING" &&
+                    item.reelVersion &&
+                    item.reelVersion.renderedAssetId &&
+                    artifactById.has(item.reelVersion.renderedAssetId) &&
+                    item.reelProject.state === "AWAITING_APPROVAL" &&
+                    item.reelVersion.version ===
+                      item.reelProject.activeVersion ? (
+                      <ApprovalDecisionForm
+                        key="decision"
+                        approvalId={item.id}
+                        organizationId={context.membership!.organization.id}
+                        clientId={clientId}
+                        projectTitle={item.reelProject.title}
+                      />
+                    ) : (
+                      "—"
+                    ),
+                  ]
+                : []),
             ],
           }))}
         />

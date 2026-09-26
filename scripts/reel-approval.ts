@@ -4,11 +4,8 @@ import {
   prisma,
   type MembershipRole,
 } from "../packages/database/src/index.ts";
-import {
-  approvalActionResult,
-  assertReelProjectTransition,
-  type ApprovalAction,
-} from "../packages/domain/src/index.ts";
+import type { ApprovalAction } from "../packages/domain/src/index.ts";
+import { decideReelApproval } from "../packages/domain/src/approval-service.ts";
 
 loadEnvFile(".env");
 
@@ -178,135 +175,13 @@ async function decideApproval(
   decidedById: string,
   note: string | undefined,
 ) {
-  const mapping = approvalActionResult(action);
-
-  const result = await prisma.$transaction(
-    async (tx) => {
-      const approval = await tx.approval.findUnique({
-        where: { id: approvalId },
-        select: {
-          id: true,
-          decision: true,
-          reelProjectId: true,
-          reelVersionId: true,
-          reelVersion: { select: { version: true, reelProjectId: true } },
-          reelProject: {
-            select: {
-              state: true,
-              activeVersion: true,
-              client: {
-                select: { id: true, organizationId: true },
-              },
-            },
-          },
-        },
-      });
-      if (!approval) throw new Error(`Approval not found: ${approvalId}`);
-      await requireApprovalActor(
-        tx,
-        approval.reelProject.client.organizationId,
-        decidedById,
-        ["OWNER", "ADMIN", "CONTENT_MANAGER", "REVIEWER"],
-      );
-
-      if (approval.decision !== "PENDING") {
-        if (approval.decision === mapping.decision) {
-          return {
-            approvalId: approval.id,
-            decision: approval.decision,
-            projectState: approval.reelProject.state,
-            reused: true,
-          };
-        }
-        throw new Error(
-          `Approval ${approval.id} is already ${approval.decision}; refusing conflicting decision`,
-        );
-      }
-
-      if (approval.reelProject.state !== "AWAITING_APPROVAL") {
-        throw new Error(
-          `ReelProject ${approval.reelProjectId} must be AWAITING_APPROVAL before a decision`,
-        );
-      }
-      if (
-        !approval.reelVersionId ||
-        !approval.reelVersion ||
-        approval.reelVersion.reelProjectId !== approval.reelProjectId ||
-        approval.reelVersion.version !== approval.reelProject.activeVersion
-      ) {
-        throw new Error(
-          `Approval ${approval.id} does not bind the active reel version; request a new approval`,
-        );
-      }
-      assertReelProjectTransition(
-        approval.reelProject.state,
-        mapping.projectState,
-      );
-
-      const claimed = await tx.approval.updateMany({
-        where: {
-          id: approval.id,
-          reelVersionId: approval.reelVersionId,
-          decision: "PENDING",
-        },
-        data: {
-          decision: mapping.decision,
-          decidedById,
-          decidedAt: new Date(),
-          note: note?.trim() || null,
-        },
-      });
-      if (claimed.count !== 1) {
-        throw new Error(
-          `Approval ${approval.id} was decided concurrently; retry to read the durable result`,
-        );
-      }
-
-      const moved = await tx.reelProject.updateMany({
-        where: {
-          id: approval.reelProjectId,
-          state: "AWAITING_APPROVAL",
-          activeVersion: approval.reelVersion.version,
-        },
-        data: { state: mapping.projectState },
-      });
-      if (moved.count !== 1) {
-        throw new Error(
-          `ReelProject ${approval.reelProjectId} changed concurrently`,
-        );
-      }
-
-      await tx.auditEvent.create({
-        data: {
-          organizationId: approval.reelProject.client.organizationId,
-          clientId: approval.reelProject.client.id,
-          actorType: "USER",
-          actorId: decidedById,
-          action: `reel.approval.${action}`,
-          entityType: "Approval",
-          entityId: approval.id,
-          metadata: {
-            reelProjectId: approval.reelProjectId,
-            reelVersionId: approval.reelVersionId,
-            decision: mapping.decision,
-          },
-        },
-      });
-
-      return {
-        approvalId: approval.id,
-        decision: mapping.decision,
-        projectState: mapping.projectState,
-        reused: false,
-      };
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      maxWait: 10_000,
-      timeout: 30_000,
-    },
-  );
-
+  const result = await decideReelApproval({
+    database: prisma,
+    approvalId,
+    action,
+    actorId: decidedById,
+    ...(note ? { note } : {}),
+  });
   console.log(
     result.reused
       ? "[reel:approval] decision already recorded"
@@ -314,7 +189,6 @@ async function decideApproval(
   );
   console.log(JSON.stringify(result, null, 2));
 }
-
 async function reopenUnboundApproval(projectId: string, actorId: string) {
   const result = await prisma.$transaction(
     async (tx) => {

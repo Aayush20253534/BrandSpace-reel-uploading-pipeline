@@ -33,8 +33,9 @@ migration and existing-data review.
 - Idempotent planning, rendering, QA, approval, scheduling and queue reconciliation.
 - Phase 11.3 automatic Instagram token lifecycle and reauthentication transitions.
 - Phase 12 operator dashboard code: authenticated shell, scoped selectors, twelve
-  views, role-gated reads, account connection entry point, queue reconciliation
-  action, audit trail and responsive loading/error/empty states.
+  views, role-gated reads and approval decisions, account connection entry point,
+  queue reconciliation action, audit trail and responsive loading/error/empty
+  states.
 - Phase 17 version-bound approval request, decision, scheduling and dispatch
   guards, plus a conservative migration for legacy approvals.
 

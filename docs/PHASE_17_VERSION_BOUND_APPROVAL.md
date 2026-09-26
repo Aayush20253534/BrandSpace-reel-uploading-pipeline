@@ -3,7 +3,9 @@
 The `Approval.reelVersionId` relation binds every new review request to the
 exact immutable `ReelVersion` that passed QA. Decisions reject a pending
 approval if its version is missing, belongs to another project, or is no longer
-active. The project state update also checks the active version atomically.
+active. They also require the generated Drive artifact to remain ready. The
+project state update checks the active version atomically. The dashboard and CLI
+share the same decision transaction.
 
 Scheduling a non-`AUTO` client now requires an `APPROVED` record for the active
 version. The dispatch worker checks the same approval, project/version identity,
