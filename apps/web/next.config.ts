@@ -27,6 +27,7 @@ if (rootEnvPath) {
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  serverExternalPackages: ["@forge/queue", "bullmq", "ioredis"],
 };
 
 export default nextConfig;

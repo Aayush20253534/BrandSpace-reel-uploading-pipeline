@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   delayUntil,
   isFinalPublishingAttempt,
+  isSafeToReconcilePublishingJob,
   publishingQueueJobId,
 } from "./index";
 
@@ -11,6 +12,29 @@ test("publishing queue job ids are stable", () => {
     publishingQueueJobId("publishing-job-1"),
     "publishing-publishing-job-1",
   );
+});
+
+test("manual reconciliation never replays an ambiguous or exhausted publish", () => {
+  const scheduled = {
+    state: "SCHEDULED",
+    attemptCount: 0,
+    externalContainerId: null,
+    externalMediaId: null,
+  };
+  assert.equal(isSafeToReconcilePublishingJob(scheduled), true);
+  assert.equal(
+    isSafeToReconcilePublishingJob({ ...scheduled, state: "RETRY_WAIT" }),
+    true,
+  );
+  for (const unsafe of [
+    { ...scheduled, state: "NEEDS_ATTENTION" },
+    { ...scheduled, state: "DISPATCHED" },
+    { ...scheduled, attemptCount: 5 },
+    { ...scheduled, externalContainerId: "container-1" },
+    { ...scheduled, externalMediaId: "media-1" },
+  ]) {
+    assert.equal(isSafeToReconcilePublishingJob(unsafe), false);
+  }
 });
 
 test("delayUntil schedules future work and clamps past work to zero", () => {

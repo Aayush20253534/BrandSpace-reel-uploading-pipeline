@@ -4,10 +4,11 @@
 
 Phase 11 — Instagram Distribution
 
-Status: Phases 1–10 and 11.1–11.3 are implemented. Phase 11.4 temporary media
-delivery is implemented and tested locally. Live acceptance awaits a private
-S3-compatible bucket and scoped credentials. The new migration has been validated
-but has not been applied to a live database.
+Status: Phases 1–10 and 11.1–11.4 are implemented locally. Phase 11.4 live
+acceptance awaits a private S3-compatible bucket and scoped credentials. The new
+migration has been validated but has not been applied to a live database.
+Phase 12's authenticated operator dashboard, scoped read views and guarded queue
+reconciliation are implemented locally; staging role and data acceptance remain.
 
 ## Completed
 
@@ -29,6 +30,9 @@ but has not been applied to a live database.
 - AI provenance and usage accounting for model-backed stages.
 - Idempotent planning, rendering, QA, approval, scheduling and queue reconciliation.
 - Phase 11.3 automatic Instagram token lifecycle and reauthentication transitions.
+- Phase 12 operator dashboard code: authenticated shell, scoped selectors, twelve
+  views, role-gated reads, account connection entry point, queue reconciliation
+  action, audit trail and responsive loading/error/empty states.
 
 ## Implemented, awaiting live acceptance
 
@@ -37,8 +41,11 @@ but has not been applied to a live database.
 
 ## Intentionally deferred
 
-- Instagram container creation/status polling and `media_publish`.
-- Full operations dashboard.
+- Instagram Login container creation/status polling and `media_publish` pending
+  verification of the current Instagram Login-specific Meta API contract. The
+  official Postman Reels examples found to date are for Facebook Login and Page
+  tokens, so they cannot safely supply this contract.
+- Phase 12 staging visual and role acceptance.
 - Incremental Google Drive change-feed ingestion.
 - Source-revision-aware invalidation for cached media intelligence.
 - Provider retry/backoff policy and transactional AI bookkeeping hardening.
@@ -64,4 +71,5 @@ but has not been applied to a live database.
 
 ## Next phase
 
-Phase 11.5 — Instagram Reel container creation after Phase 11.4 gates pass.
+Phase 11.5 — Instagram Reel container creation after the Instagram Login-specific
+Meta contract is verified. Continue independent Phase 12–18 work meanwhile.

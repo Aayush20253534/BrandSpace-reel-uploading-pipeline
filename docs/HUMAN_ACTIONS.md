@@ -2,6 +2,25 @@
 
 ## Blocking
 
+### Provide access to the current Instagram Login publishing reference
+
+Why: Meta's public developer documentation currently returns HTTP 429 or is
+inaccessible from this workspace. Meta's public Postman Reels examples use the
+Facebook Login flow, `graph.facebook.com` and Page tokens. Forge uses Instagram
+Login and an Instagram user token, so copying those calls would risk an invalid
+or unsafe production implementation.
+
+Exact location: Meta for Developers → **Instagram Platform → Instagram API with
+Instagram Login → Content Publishing**. In the app dashboard, confirm the
+Instagram product's API setup and current version under **My Apps → BrandSpace
+app → Instagram**.
+
+Needed information: an accessible official URL or exported page showing the
+Instagram Login base URL/version, Reel container create request, status request,
+`media_publish` request, required permission, media limits, errors and rate
+limits. Do not send access tokens or app secrets. This enables code and mock
+tests for Phases 11.5–11.7 and 13; it does not authorize a live publish.
+
 ### Create a private temporary publication bucket and scoped credential
 
 Why: Meta must fetch a generated reel over HTTPS while Google Drive remains the

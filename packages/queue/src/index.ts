@@ -6,6 +6,20 @@ export const PUBLISHING_DISPATCH_JOB_NAME = "publishing.dispatch" as const;
 export const PUBLISHING_MAX_ATTEMPTS = 5;
 export const PUBLISHING_RETRY_DELAY_MS = 5_000;
 
+export function isSafeToReconcilePublishingJob(job: {
+  state: string;
+  attemptCount: number;
+  externalContainerId: string | null;
+  externalMediaId: string | null;
+}) {
+  return (
+    (job.state === "SCHEDULED" || job.state === "RETRY_WAIT") &&
+    job.attemptCount < PUBLISHING_MAX_ATTEMPTS &&
+    !job.externalContainerId &&
+    !job.externalMediaId
+  );
+}
+
 export interface PublishingDispatchJob {
   publishingJobId: string;
   reelProjectId: string;
