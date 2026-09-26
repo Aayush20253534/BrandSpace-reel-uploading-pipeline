@@ -41,6 +41,8 @@ migration and existing-data review.
 - Phase 17 Instagram connection hardening: transaction-bound OAuth state,
   encrypted exchange recovery, callback error redaction and database-enforced
   unique active account ownership across clients.
+- Phase 15 read-only MCP foundation with scoped bearer credentials, live
+  membership RBAC, database rate limiting, bounded read tools and token audit.
 
 ## Implemented, awaiting live acceptance
 
@@ -58,6 +60,8 @@ migration and existing-data review.
 - Source-revision-aware invalidation for cached media intelligence.
 - Provider retry/backoff policy and transactional AI bookkeeping hardening.
 - Subjective AI-assisted creative scoring.
+- Phase 15 mutation MCP tools and OAuth authorization for hosted ChatGPT
+  clients; the current bearer-token interface is read only.
 
 ## Current operator setup
 

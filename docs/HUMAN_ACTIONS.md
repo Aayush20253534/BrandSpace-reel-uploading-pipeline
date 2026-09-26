@@ -55,6 +55,32 @@ What phase it blocks: Live acceptance of 11.4 and real Instagram publication in
 
 ## Non-blocking production setup
 
+### Deploy and provision the read-only MCP interface
+
+Why: MCP credentials are stored as token hashes in the new
+`AgentAccessToken` table. Agents need a scoped, revocable credential after the
+database migration is applied.
+
+Exact location: Staging deployment with its own `DATABASE_URL`, then
+production after staging acceptance. Apply `npm run db:deploy` through the
+normal release process. The migration is
+`20260926030000_agent_access_tokens`. Configure the web deployment's `APP_URL`
+to its exact public HTTPS origin; the MCP route validates its host and origin.
+
+From a trusted operator shell, use an owner/admin `user.id` from `/api/me` as
+`<admin-user-id>` and run:
+
+```text
+npm run agent:token -- create <organization-id> <admin-user-id> <target-user-id> <client-id|all> <label>
+```
+
+The command prints the bearer token once. Store it in the MCP client's secret
+manager and revoke by credential ID with `npm run agent:token -- revoke
+<credential-id> <admin-user-id>`. Keep the CLI in a trusted operator shell;
+its supplied actor ID is not an interactive login. See
+`PHASE_15_MCP_READ_INTERFACE.md` for the current read tools and limits. No
+live migration or credential issuance has occurred in this workspace.
+
 ### Review active Instagram account ownership before migration
 
 Why: The new database index prevents two clients from holding an active
