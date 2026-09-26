@@ -16,6 +16,7 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "approval:typecheck": "tsc -p tsconfig.approval-scripts.json",
+    "agent:typecheck": "tsc -p tsconfig.agent-scripts.json",
     "test": "turbo test",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
@@ -43,6 +44,7 @@
     "reel:queue:reconcile": "tsx scripts/reel-queue-reconcile.ts",
     "instagram:account:import": "tsx scripts/instagram-account-import.ts",
     "instagram:account:list": "tsx scripts/instagram-account-list.ts",
+    "agent:token": "tsx scripts/agent-token.ts",
     "publication:media": "tsx scripts/publication-media.ts"
   },
   "devDependencies": {

@@ -148,6 +148,7 @@ model User {
   accounts      Account[]
   memberships   Membership[]
   socialOAuthAttempts SocialOAuthAttempt[]
+  agentAccessTokens AgentAccessToken[]
 }
 
 model Session {
@@ -204,6 +205,7 @@ model Organization {
   memberships Membership[]
   clients     Client[]
   auditEvents AuditEvent[]
+  agentAccessTokens AgentAccessToken[]
 }
 
 model Membership {
@@ -218,6 +220,28 @@ model Membership {
 
   @@unique([organizationId, userId])
   @@index([userId])
+}
+
+model AgentAccessToken {
+  id             String       @id @default(cuid())
+  tokenHash      String       @unique
+  userId         String
+  organizationId String
+  clientId       String?
+  label          String
+  scopes         String[]
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  lastUsedAt     DateTime?
+  rateWindowStartedAt DateTime?
+  rateWindowCount Int          @default(0)
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId])
+  @@index([expiresAt])
 }
 
 model Client {
@@ -241,6 +265,7 @@ model Client {
   driveSyncState    DriveSyncState?
   socialAccounts    SocialAccount[]
   socialOAuthAttempts SocialOAuthAttempt[]
+  agentAccessTokens AgentAccessToken[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
