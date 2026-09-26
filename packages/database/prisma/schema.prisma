@@ -239,9 +239,24 @@ model AgentAccessToken {
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client         Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  mutations      AgentMutation[]
 
   @@index([organizationId, userId])
   @@index([expiresAt])
+}
+
+model AgentMutation {
+  id             String           @id @default(cuid())
+  credentialId   String
+  toolName       String
+  idempotencyKey String
+  requestHash    String
+  result         Json
+  createdAt      DateTime         @default(now())
+  credential     AgentAccessToken @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@unique([credentialId, toolName, idempotencyKey])
+  @@index([createdAt])
 }
 
 model Client {

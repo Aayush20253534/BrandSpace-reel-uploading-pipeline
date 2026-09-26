@@ -49,6 +49,8 @@ migration and existing-data review.
   refresh and profile verification.
 - Phase 18 targeted hot-query indexes and a scale/cost review with a safe MCP
   synthetic workload tool; live capacity baselines remain pending.
+- Phase 15 draft-only MCP project creation with client-scoped write credentials,
+  transaction-bound idempotency and audit attribution.
 
 ## Implemented, awaiting live acceptance
 

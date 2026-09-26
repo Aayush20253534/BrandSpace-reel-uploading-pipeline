@@ -95,6 +95,8 @@ production after staging acceptance. Apply `npm run db:deploy` through the
 normal release process. The migration is
 `20260926030000_agent_access_tokens`. Configure the web deployment's `APP_URL`
 to its exact public HTTPS origin; the MCP route validates its host and origin.
+Before issuing any write credential, also apply
+`20260926050000_agent_mutation_idempotency`.
 
 From a trusted operator shell, use an owner/admin `user.id` from `/api/me` as
 `<admin-user-id>` and run:
@@ -102,6 +104,10 @@ From a trusted operator shell, use an owner/admin `user.id` from `/api/me` as
 ```text
 npm run agent:token -- create <organization-id> <admin-user-id> <target-user-id> <client-id|all> <label>
 ```
+
+For draft project creation only, use a client-specific ID and append `write`.
+This seven-day credential cannot use `all`; the default read-only credential
+lasts 30 days. The draft tool never schedules or publishes.
 
 The command prints the bearer token once. Store it in the MCP client's secret
 manager and revoke by credential ID with `npm run agent:token -- revoke

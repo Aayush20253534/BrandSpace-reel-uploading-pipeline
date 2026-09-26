@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const authInfo: ForgeAuthInfo = {
       token: context.credentialId,
       clientId: context.credentialId,
-      scopes: ["read"],
+      scopes: context.scopes,
       forgeContext: context,
     };
     const response = await handler.fetch(request, { authInfo });

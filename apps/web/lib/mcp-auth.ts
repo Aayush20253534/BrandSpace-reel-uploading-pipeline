@@ -7,6 +7,7 @@ export interface AgentContext {
   organizationId: string;
   clientId: string | null;
   role: MembershipRole;
+  scopes: string[];
 }
 
 export class AgentRateLimitError extends Error {
@@ -104,5 +105,6 @@ export async function authenticateAgentToken(
     organizationId: credential.organizationId,
     clientId: credential.clientId,
     role: membership.role,
+    scopes: credential.scopes,
   };
 }

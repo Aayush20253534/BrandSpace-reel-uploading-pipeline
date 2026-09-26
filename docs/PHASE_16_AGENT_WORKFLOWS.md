@@ -26,9 +26,11 @@ when access is no longer needed.
 
 ## Pending write path
 
-Creating, rendering, QA, approval decisions, scheduling and retrying need
-separate mutation tools with narrow input schemas, live role and tenant checks,
-idempotency keys and audit events. Until those tools exist, an agent can only
-propose these actions. A real Instagram publish still requires the exact
-version's approval and separate explicit operator authorization for the real
-post. No prompt should bypass those gates.
+With a client-specific write credential, an authorized editor can call
+`create_reel_project` once per UUID idempotency key to create a draft. The
+agent should report the resulting project ID and `DRAFT` state. Planning,
+rendering, QA, approval decisions, scheduling and retrying still need separate
+mutation tools with narrow schemas and audit events. Until those tools exist,
+an agent can only propose those actions. A real Instagram publish still
+requires the exact version's approval and separate explicit operator
+authorization for the real post. No prompt should bypass those gates.

@@ -4,14 +4,19 @@ import { createMcpHandler } from "@modelcontextprotocol/server";
 import type { MembershipRole } from "@forge/database";
 import { createForgeMcpServer } from "./mcp-server";
 
-async function toolNames(role: MembershipRole) {
+async function toolNames(
+  role: MembershipRole,
+  scopes = ["read"],
+  scopedClientId: string | null = null,
+) {
   const handler = createMcpHandler(() =>
     createForgeMcpServer({
       credentialId: "credential-test",
       userId: "user-test",
       organizationId: "organization-test",
-      clientId: null,
+      clientId: scopedClientId,
       role,
+      scopes,
     }),
   );
   try {
@@ -70,4 +75,27 @@ test("reviewers cannot discover account, analytics, or audit tools", async () =>
   assert.ok(!names.includes("list_social_account_health"));
   assert.ok(!names.includes("list_analytics_snapshots"));
   assert.ok(!names.includes("list_audit_events"));
+});
+
+test("draft creation requires a client-scoped write credential and editor role", async () => {
+  assert.ok(
+    (await toolNames("EDITOR", ["read", "write"], "client-a")).includes(
+      "create_reel_project",
+    ),
+  );
+  assert.ok(
+    !(await toolNames("EDITOR", ["read"], "client-a")).includes(
+      "create_reel_project",
+    ),
+  );
+  assert.ok(
+    !(await toolNames("EDITOR", ["read", "write"])).includes(
+      "create_reel_project",
+    ),
+  );
+  assert.ok(
+    !(await toolNames("REVIEWER", ["read", "write"], "client-a")).includes(
+      "create_reel_project",
+    ),
+  );
 });

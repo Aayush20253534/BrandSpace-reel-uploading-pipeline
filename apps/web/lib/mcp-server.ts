@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { prisma, type MembershipRole } from "@forge/database";
 import * as z from "zod/v4";
 import type { AgentContext } from "./mcp-auth";
+import { AgentMutationError, createAgentReelProject } from "./mcp-mutations";
 
 const page = z.number().int().min(1).max(100).default(1);
 const limit = z.number().int().min(1).max(50).default(20);
@@ -64,6 +65,49 @@ const readOnly = { readOnlyHint: true, destructiveHint: false } as const;
 
 export function createForgeMcpServer(context: AgentContext) {
   const server = new McpServer({ name: "brandspace-forge", version: "0.2.0" });
+
+  if (
+    context.clientId &&
+    context.scopes.includes("write") &&
+    ["OWNER", "ADMIN", "CONTENT_MANAGER", "EDITOR"].includes(context.role)
+  ) {
+    server.registerTool(
+      "create_reel_project",
+      {
+        description:
+          "Create a draft reel project for this credential's client. Requires a fresh UUID idempotency key. This does not plan, approve, schedule, or publish.",
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: true,
+        },
+        inputSchema: z.object({
+          clientId,
+          title: z.string().trim().min(1).max(120),
+          objective: z.string().trim().max(1_000).optional(),
+          idempotencyKey: z.string().uuid(),
+        }),
+      },
+      async (input) => {
+        try {
+          return result(await createAgentReelProject(context, input));
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  error instanceof AgentMutationError
+                    ? error.code
+                    : "Unable to create reel project",
+              },
+            ],
+            isError: true,
+          };
+        }
+      },
+    );
+  }
 
   server.registerTool(
     "list_clients",

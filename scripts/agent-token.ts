@@ -7,7 +7,7 @@ if (existsSync(".env")) loadEnvFile(".env");
 
 function usage(): never {
   throw new Error(
-    "Usage: npm run agent:token -- create <organization-id> <actor-user-id> <target-user-id> <client-id|all> <label> | revoke <credential-id> <actor-user-id>",
+    "Usage: npm run agent:token -- create <organization-id> <actor-user-id> <target-user-id> <client-id|all> <label> [read|write] | revoke <credential-id> <actor-user-id>",
   );
 }
 
@@ -25,8 +25,14 @@ async function requireAdministrator(
 }
 
 async function createCredential(args: string[]) {
-  const [organizationId, actorUserId, targetUserId, clientArgument, label] =
-    args;
+  const [
+    organizationId,
+    actorUserId,
+    targetUserId,
+    clientArgument,
+    label,
+    scopeArgument = "read",
+  ] = args;
   if (
     !organizationId ||
     !actorUserId ||
@@ -37,6 +43,10 @@ async function createCredential(args: string[]) {
     usage();
   if (label.trim().length < 3 || label.trim().length > 80) {
     throw new Error("Credential label must be 3–80 characters");
+  }
+  if (scopeArgument !== "read" && scopeArgument !== "write") usage();
+  if (scopeArgument === "write" && clientArgument === "all") {
+    throw new Error("Write credentials must be limited to one client");
   }
   await requireAdministrator(organizationId, actorUserId);
   const target = await prisma.membership.findUnique({
@@ -56,7 +66,10 @@ async function createCredential(args: string[]) {
   }
 
   const token = `bspf_${randomBytes(32).toString("base64url")}`;
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1_000);
+  const scopes = scopeArgument === "write" ? ["read", "write"] : ["read"];
+  const expiresAt = new Date(
+    Date.now() + (scopeArgument === "write" ? 7 : 30) * 24 * 60 * 60 * 1_000,
+  );
   const credential = await prisma.$transaction(async (tx) => {
     const created = await tx.agentAccessToken.create({
       data: {
@@ -65,7 +78,7 @@ async function createCredential(args: string[]) {
         organizationId,
         clientId,
         label: label.trim(),
-        scopes: ["read"],
+        scopes,
         expiresAt,
       },
       select: { id: true },
@@ -82,7 +95,7 @@ async function createCredential(args: string[]) {
         metadata: {
           targetUserId,
           label: label.trim(),
-          scopes: ["read"],
+          scopes,
           expiresAt: expiresAt.toISOString(),
         },
       },

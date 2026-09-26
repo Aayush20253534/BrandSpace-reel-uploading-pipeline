@@ -39,7 +39,9 @@ secret manager, send it only over HTTPS, and do not put it in prompts, logs, or
 the repository. The CLI actor ID is trusted only because the command must run
 in a privileged operator environment; it is not interactive authentication.
 
-This first interface is read only. Mutation tools, user-facing OAuth
+Read credentials remain read only. A separate short-lived, client-specific
+write scope can expose the draft-only `create_reel_project` tool described in
+`PHASE_15_MCP_DRAFT_CREATION.md`. Further mutation tools, user-facing OAuth
 authorization for ChatGPT, and live deployment acceptance are still pending.
 The SDK's current [HTTP serving guide](https://ts.sdk.modelcontextprotocol.io/v2/serving/http)
 describes the handler and transport used here.
