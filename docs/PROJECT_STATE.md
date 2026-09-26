@@ -9,6 +9,8 @@ acceptance awaits a private S3-compatible bucket and scoped credentials. The new
 migration has been validated but has not been applied to a live database.
 Phase 12's authenticated operator dashboard, scoped read views and guarded queue
 reconciliation are implemented locally; staging role and data acceptance remain.
+Phase 17 version-bound approval hardening is implemented locally and awaits
+migration and existing-data review.
 
 ## Completed
 
@@ -33,6 +35,8 @@ reconciliation are implemented locally; staging role and data acceptance remain.
 - Phase 12 operator dashboard code: authenticated shell, scoped selectors, twelve
   views, role-gated reads, account connection entry point, queue reconciliation
   action, audit trail and responsive loading/error/empty states.
+- Phase 17 version-bound approval request, decision, scheduling and dispatch
+  guards, plus a conservative migration for legacy approvals.
 
 ## Implemented, awaiting live acceptance
 
@@ -50,7 +54,6 @@ reconciliation are implemented locally; staging role and data acceptance remain.
 - Source-revision-aware invalidation for cached media intelligence.
 - Provider retry/backoff policy and transactional AI bookkeeping hardening.
 - Subjective AI-assisted creative scoring.
-- Version-bound approval schema hardening.
 
 ## Current operator setup
 

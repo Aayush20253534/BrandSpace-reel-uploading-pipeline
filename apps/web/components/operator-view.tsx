@@ -656,8 +656,9 @@ export async function OperatorView({
             requestedAt: true,
             decidedAt: true,
             note: true,
+            reelVersion: { select: { version: true } },
             reelProject: {
-              select: { title: true, activeVersion: true, state: true },
+              select: { title: true, state: true },
             },
           },
         }),
@@ -680,7 +681,7 @@ export async function OperatorView({
               <span key="title" className="font-semibold">
                 {item.reelProject.title}
               </span>,
-              `v${item.reelProject.activeVersion}`,
+              item.reelVersion ? `v${item.reelVersion.version}` : "Unbound",
               <Badge key="state" value={item.decision} />,
               <span
                 key="note"

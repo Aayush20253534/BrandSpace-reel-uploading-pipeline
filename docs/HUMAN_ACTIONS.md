@@ -55,6 +55,42 @@ What phase it blocks: Live acceptance of 11.4 and real Instagram publication in
 
 ## Non-blocking production setup
 
+### Deploy and review the version-bound approval migration
+
+Why: Existing approval records may lack a reliable version link. The migration
+backfills only rows with one matching request audit event; ambiguous rows remain
+unbound and cannot authorize scheduling or dispatch.
+
+Exact location: In the staging release environment with the staging
+`DATABASE_URL`, run `npm run db:generate` and `npm run db:deploy`. Repeat in the
+production release environment only after reviewing the staging result and
+backing up production. The migration is
+`20260926010000_version_bound_approvals`.
+
+Exact check after migration: Run this read-only query in the database SQL console
+for each environment:
+
+```sql
+SELECT a."id", a."reelProjectId", a."decision", p."state"
+FROM "Approval" AS a
+JOIN "ReelProject" AS p ON p."id" = a."reelProjectId"
+WHERE a."reelVersionId" IS NULL
+  AND a."decision" IN ('PENDING', 'APPROVED')
+ORDER BY a."requestedAt" DESC;
+```
+
+Expected result: No active unbound approvals. For an unbound pending request,
+use the signed-in operator's `user.id` from `/api/me` as `<actor-id>`, review
+the current version and use `npm run reel:approval -- request
+<reel-project-id> <actor-id>` to create a bound request, then decide that new
+request. For an unbound approved project with **no publishing history**, run
+`npm run reel:approval -- reopen <reel-project-id> <actor-id>`, review the reel,
+then request and decide anew. If a project has publishing history, leave its
+job disabled and investigate manually; the command refuses to reopen it.
+
+What phase it blocks: Live acceptance of the approval hardening and safe future
+publishing. No production migration has been run from this workspace.
+
 ### Approve the Meta permission and connect a test professional account
 
 Why: Live end-to-end publication and later insights collection need an authorized

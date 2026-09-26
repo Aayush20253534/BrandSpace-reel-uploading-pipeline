@@ -6,9 +6,9 @@ import { assertSocialAccountSchedulable } from "../packages/social/src/index.ts"
 
 loadEnvFile(".env");
 
-const reelProjectId = process.argv[2]?.trim();
-const socialAccountId = process.argv[3]?.trim();
-const scheduledAtRaw = process.argv[4]?.trim();
+const reelProjectId = process.argv[2]?.trim() ?? "";
+const socialAccountId = process.argv[3]?.trim() ?? "";
+const scheduledAtRaw = process.argv[4]?.trim() ?? "";
 
 if (!reelProjectId || !socialAccountId || !scheduledAtRaw) {
   console.error(
@@ -43,6 +43,7 @@ async function main() {
             select: {
               id: true,
               organizationId: true,
+              approvalMode: true,
             },
           },
         },
@@ -75,6 +76,22 @@ async function main() {
         throw new Error(
           `Active ReelVersion ${version.id} has no rendered artifact`,
         );
+      }
+
+      if (project.client.approvalMode !== "AUTO") {
+        const approved = await tx.approval.findFirst({
+          where: {
+            reelProjectId: project.id,
+            reelVersionId: version.id,
+            decision: "APPROVED",
+          },
+          select: { id: true },
+        });
+        if (!approved) {
+          throw new Error(
+            `Active ReelVersion ${version.id} requires a version-bound approval before scheduling`,
+          );
+        }
       }
 
       const socialAccount = await tx.socialAccount.findUnique({
@@ -128,10 +145,19 @@ async function main() {
         },
       });
 
-      await tx.reelProject.update({
-        where: { id: project.id },
+      const moved = await tx.reelProject.updateMany({
+        where: {
+          id: project.id,
+          state: "APPROVED",
+          activeVersion: project.activeVersion,
+        },
         data: { state: "SCHEDULED" },
       });
+      if (moved.count !== 1) {
+        throw new Error(
+          `ReelProject ${project.id} changed before scheduling; retry after inspection`,
+        );
+      }
 
       await tx.auditEvent.create({
         data: {

@@ -15,6 +15,7 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
+    "approval:typecheck": "tsc -p tsconfig.approval-scripts.json",
     "test": "turbo test",
     "format:check": "prettier --check .",
     "format": "prettier --write .",

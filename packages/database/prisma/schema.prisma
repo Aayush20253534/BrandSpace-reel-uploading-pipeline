@@ -371,6 +371,7 @@ model ReelVersion {
   renderJobs         RenderJob[]
   qaReviews          QaReview[]
   publishingJobs     PublishingJob[]
+  approvals           Approval[]
 
   @@unique([reelProjectId, version])
   @@index([reelProjectId, createdAt])
@@ -427,6 +428,7 @@ model QaReview {
 model Approval {
   id            String           @id @default(cuid())
   reelProjectId String
+  reelVersionId String?
   decision      ApprovalDecision @default(PENDING)
   requestedById String?
   decidedById   String?
@@ -434,8 +436,10 @@ model Approval {
   requestedAt   DateTime         @default(now())
   decidedAt     DateTime?
   reelProject   ReelProject      @relation(fields: [reelProjectId], references: [id], onDelete: Cascade)
+  reelVersion   ReelVersion?     @relation(fields: [reelVersionId], references: [id], onDelete: Restrict)
 
   @@index([reelProjectId, decision])
+  @@index([reelVersionId, decision])
 }
 
 model SocialAccount {

@@ -14,6 +14,7 @@ import {
   cleanupPublicationMedia,
   createTemporaryDelivery,
 } from "./publication-media.js";
+import { publishingPreflightError } from "./publishing-preflight.js";
 
 const logger = createLogger("worker");
 
@@ -200,12 +201,154 @@ if (env.REDIS_URL) {
   publishingWorker = createPublishingWorker(
     env.REDIS_URL,
     async (job: PublishingDispatchJob, context: PublishingDispatchContext) => {
+      const pending = await prisma.publishingJob.findUnique({
+        where: { id: job.publishingJobId },
+        select: {
+          state: true,
+          idempotencyKey: true,
+          reelProject: {
+            select: {
+              id: true,
+              state: true,
+              activeVersion: true,
+              clientId: true,
+              client: {
+                select: { organizationId: true, approvalMode: true },
+              },
+            },
+          },
+          reelVersion: {
+            select: {
+              id: true,
+              reelProjectId: true,
+              version: true,
+              renderedAssetId: true,
+            },
+          },
+          socialAccount: {
+            select: {
+              id: true,
+              clientId: true,
+              status: true,
+              accessTokenCiphertext: true,
+              tokenExpiresAt: true,
+            },
+          },
+        },
+      });
+      if (!pending || pending.idempotencyKey !== job.idempotencyKey) {
+        throw new Error(
+          `PublishingJob not found or mismatched: ${job.publishingJobId}`,
+        );
+      }
+      if (pending.state !== "SCHEDULED" && pending.state !== "RETRY_WAIT") {
+        logger.info("publishing_dispatch_skipped", {
+          publishingJobId: job.publishingJobId,
+          state: pending.state,
+        });
+        return;
+      }
+      const approval =
+        pending.reelProject.client.approvalMode === "AUTO"
+          ? null
+          : await prisma.approval.findFirst({
+              where: {
+                reelProjectId: pending.reelProject.id,
+                reelVersionId: pending.reelVersion.id,
+                decision: "APPROVED",
+              },
+              select: { id: true },
+            });
+      const guardError = publishingPreflightError({
+        jobState: pending.state,
+        jobProjectId: job.reelProjectId,
+        jobVersionId: job.reelVersionId,
+        jobAccountId: job.socialAccountId,
+        project: {
+          id: pending.reelProject.id,
+          state: pending.reelProject.state,
+          activeVersion: pending.reelProject.activeVersion,
+          clientId: pending.reelProject.clientId,
+          approvalMode: pending.reelProject.client.approvalMode,
+        },
+        version: pending.reelVersion,
+        account: {
+          id: pending.socialAccount.id,
+          clientId: pending.socialAccount.clientId,
+          status: pending.socialAccount.status,
+          hasCredential: Boolean(pending.socialAccount.accessTokenCiphertext),
+          tokenExpiresAt: pending.socialAccount.tokenExpiresAt,
+        },
+        hasVersionApproval: Boolean(approval),
+      });
+      if (guardError) {
+        const blocked = await prisma.$transaction(async (tx) => {
+          const updated = await tx.publishingJob.updateMany({
+            where: {
+              id: job.publishingJobId,
+              idempotencyKey: job.idempotencyKey,
+              state: { in: ["SCHEDULED", "RETRY_WAIT"] },
+            },
+            data: {
+              state: "NEEDS_ATTENTION",
+              lockedAt: null,
+              lastErrorCode: guardError,
+              lastErrorMessage: "Publishing preflight rejected this job",
+            },
+          });
+          if (updated.count > 0) {
+            await tx.auditEvent.create({
+              data: {
+                organizationId: pending.reelProject.client.organizationId,
+                clientId: pending.reelProject.clientId,
+                actorType: "WORKER",
+                action: "publishing.preflight_blocked",
+                entityType: "PublishingJob",
+                entityId: job.publishingJobId,
+                metadata: { code: guardError },
+              },
+            });
+          }
+          return updated.count > 0;
+        });
+        logger.warn("publishing_preflight_blocked", {
+          publishingJobId: job.publishingJobId,
+          code: guardError,
+          blocked,
+        });
+        return;
+      }
+
       const claimed = await prisma.publishingJob.updateMany({
         where: {
           id: job.publishingJobId,
           idempotencyKey: job.idempotencyKey,
           state: {
             in: ["SCHEDULED", "RETRY_WAIT"],
+          },
+          reelProject: {
+            state: "SCHEDULED",
+            activeVersion: pending.reelVersion.version,
+            clientId: pending.socialAccount.clientId,
+            OR: [
+              { client: { approvalMode: "AUTO" } },
+              {
+                approvals: {
+                  some: {
+                    reelVersionId: job.reelVersionId,
+                    decision: "APPROVED",
+                  },
+                },
+              },
+            ],
+          },
+          reelVersion: {
+            reelProjectId: job.reelProjectId,
+            renderedAssetId: { not: null },
+          },
+          socialAccount: {
+            clientId: pending.reelProject.clientId,
+            status: "CONNECTED",
           },
         },
         data: {
