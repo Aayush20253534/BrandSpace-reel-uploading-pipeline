@@ -101,6 +101,44 @@ export function decryptSocialToken(payload: string, encodedKey: string) {
   ]).toString("utf8");
 }
 
+export function parseSocialTokenPreviousKeys(
+  value: string | undefined,
+  currentKey: string,
+) {
+  parseSocialTokenEncryptionKey(currentKey);
+  const keys =
+    value
+      ?.split(",")
+      .map((key) => key.trim())
+      .filter(Boolean) ?? [];
+  if (
+    keys.length > 3 ||
+    new Set([currentKey.trim(), ...keys]).size !== keys.length + 1
+  ) {
+    throw new Error(
+      "Social token previous keys must be distinct and limited to three",
+    );
+  }
+  for (const key of keys) parseSocialTokenEncryptionKey(key);
+  return keys;
+}
+
+export function decryptSocialTokenFromKeyring(
+  payload: string,
+  currentKey: string,
+  previousKeys: readonly string[] = [],
+) {
+  for (const [keyIndex, key] of [currentKey, ...previousKeys].entries()) {
+    try {
+      return { plaintext: decryptSocialToken(payload, key), keyIndex };
+    } catch {
+      // The ciphertext does not identify its encryption key. Try only the
+      // explicitly configured keys and never expose crypto exception details.
+    }
+  }
+  throw new Error("Social token cannot be decrypted with configured keys");
+}
+
 export function assertSocialAccountSchedulable(
   account: SchedulableSocialAccount,
   expectedClientId: string,

@@ -1,5 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
+import { loadEnvFile } from "node:process";
 import { prisma } from "@forge/database";
+
+if (existsSync(".env")) loadEnvFile(".env");
 
 function usage(): never {
   throw new Error(

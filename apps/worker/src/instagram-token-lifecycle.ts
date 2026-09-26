@@ -2,12 +2,13 @@ import { env } from "@forge/config";
 import { prisma } from "@forge/database";
 import { createLogger } from "@forge/logger";
 import {
-  decryptSocialToken,
+  decryptSocialTokenFromKeyring,
   encryptSocialToken,
   InstagramAccountMismatchError,
   InstagramProviderError,
   isInstagramReauthenticationError,
   parseSocialTokenEncryptionKey,
+  parseSocialTokenPreviousKeys,
   refreshInstagramLongLivedToken,
   verifyInstagramAccessToken,
 } from "@forge/social";
@@ -21,10 +22,13 @@ const REFRESH_LEASE_MS = 30 * 60 * 1_000;
 const BATCH_SIZE = 100;
 
 function errorMessage(error: unknown) {
-  return (error instanceof Error ? error.message : String(error)).slice(
-    0,
-    2_000,
-  );
+  if (error instanceof InstagramProviderError) {
+    return `Instagram provider HTTP ${error.httpStatus}`;
+  }
+  if (error instanceof InstagramAccountMismatchError) {
+    return "Instagram account identity mismatch";
+  }
+  return "Instagram token maintenance failed";
 }
 
 function errorCode(error: unknown) {
@@ -104,7 +108,11 @@ async function markExpiredAccounts(now: Date) {
   return { scanned: expired.length, movedToReauth };
 }
 
-async function refreshDueAccounts(now: Date, encryptionKey: string) {
+async function refreshDueAccounts(
+  now: Date,
+  encryptionKey: string,
+  previousKeys: readonly string[],
+) {
   const refreshBy = new Date(now.getTime() + REFRESH_LEAD_MS);
   const minimumIssuedAt = new Date(now.getTime() - MIN_REFRESH_AGE_MS);
   const staleLeaseBefore = new Date(now.getTime() - REFRESH_LEASE_MS);
@@ -174,10 +182,11 @@ async function refreshDueAccounts(now: Date, encryptionKey: string) {
         throw new Error("Connected Instagram account has no encrypted token");
       }
 
-      const currentToken = decryptSocialToken(
+      const currentToken = decryptSocialTokenFromKeyring(
         account.accessTokenCiphertext,
         encryptionKey,
-      );
+        previousKeys,
+      ).plaintext;
       const refreshedToken = await refreshInstagramLongLivedToken(currentToken);
 
       const verifiedProfile = await verifyInstagramAccessToken(
@@ -344,9 +353,13 @@ export async function maintainInstagramCredentials(now = new Date()) {
   }
 
   parseSocialTokenEncryptionKey(key);
+  const previousKeys = parseSocialTokenPreviousKeys(
+    env.SOCIAL_TOKEN_PREVIOUS_KEYS,
+    key,
+  );
 
   const expired = await markExpiredAccounts(now);
-  const refresh = await refreshDueAccounts(now, key);
+  const refresh = await refreshDueAccounts(now, key, previousKeys);
 
   logger.info("instagram_token_maintenance_completed", {
     expiredScanned: expired.scanned,

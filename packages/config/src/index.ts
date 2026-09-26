@@ -65,6 +65,7 @@ const schema = z.object({
   REDIS_URL: optionalUrl,
 
   SOCIAL_TOKEN_ENCRYPTION_KEY: optionalString,
+  SOCIAL_TOKEN_PREVIOUS_KEYS: optionalString,
 
   META_APP_ID: optionalString,
 

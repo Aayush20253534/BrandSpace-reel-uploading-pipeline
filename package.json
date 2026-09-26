@@ -45,6 +45,7 @@
     "instagram:account:import": "tsx scripts/instagram-account-import.ts",
     "instagram:account:list": "tsx scripts/instagram-account-list.ts",
     "agent:token": "tsx scripts/agent-token.ts",
+    "social:token:rotate": "tsx scripts/social-token-rotate.ts",
     "publication:media": "tsx scripts/publication-media.ts"
   },
   "devDependencies": {

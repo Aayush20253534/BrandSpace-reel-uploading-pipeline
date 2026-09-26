@@ -43,6 +43,8 @@ migration and existing-data review.
   unique active account ownership across clients.
 - Phase 15 read-only MCP foundation with scoped bearer credentials, live
   membership RBAC, database rate limiting, bounded read tools and token audit.
+- Phase 17 social token keyring support and audited rewrap command; worker
+  refresh errors now store stable sanitized messages.
 
 ## Implemented, awaiting live acceptance
 

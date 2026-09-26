@@ -7,5 +7,5 @@
     "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["scripts/agent-token.ts"]
+  "include": ["scripts/agent-token.ts", "scripts/social-token-rotate.ts"]
 }

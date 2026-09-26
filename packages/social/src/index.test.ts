@@ -4,8 +4,10 @@ import test from "node:test";
 import {
   assertSocialAccountSchedulable,
   decryptSocialToken,
+  decryptSocialTokenFromKeyring,
   encryptSocialToken,
   parseSocialTokenEncryptionKey,
+  parseSocialTokenPreviousKeys,
 } from "./index";
 
 const key = () => randomBytes(32).toString("base64url");
@@ -23,6 +25,25 @@ test("social tokens round-trip through authenticated encryption", () => {
 test("social token ciphertext rejects the wrong key", () => {
   const encrypted = encryptSocialToken("ig-secret-token", key());
   assert.throws(() => decryptSocialToken(encrypted, key()));
+});
+
+test("previous keys decrypt old credentials until they are rewrapped", () => {
+  const oldKey = key();
+  const newKey = key();
+  const encrypted = encryptSocialToken("old-token", oldKey);
+  const previousKeys = parseSocialTokenPreviousKeys(oldKey, newKey);
+
+  assert.deepEqual(
+    decryptSocialTokenFromKeyring(encrypted, newKey, previousKeys),
+    {
+      plaintext: "old-token",
+      keyIndex: 1,
+    },
+  );
+  assert.throws(() => decryptSocialTokenFromKeyring(encrypted, newKey));
+  assert.throws(() =>
+    parseSocialTokenPreviousKeys(`${oldKey},${oldKey}`, newKey),
+  );
 });
 
 test("social token encryption keys must decode to exactly 32 bytes", () => {

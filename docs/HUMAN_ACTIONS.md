@@ -55,6 +55,22 @@ What phase it blocks: Live acceptance of 11.4 and real Instagram publication in
 
 ## Non-blocking production setup
 
+### Rotate the social token encryption key when needed
+
+Why: Instagram credentials and short-lived staged OAuth results use the active
+AES-256-GCM key. Rotation requires overlapping decryption support while web
+and worker instances are rolled out.
+
+Exact location: The environment's secret manager entries for
+`SOCIAL_TOKEN_ENCRYPTION_KEY` and `SOCIAL_TOKEN_PREVIOUS_KEYS`, followed by a
+trusted operator shell with its `DATABASE_URL`. Follow
+`PHASE_17_SOCIAL_KEY_ROTATION.md` in staging first. The command is
+`npm run social:token:rotate -- dry-run|apply`.
+
+Expected result: After `apply` and the ten-minute OAuth overlap, `dry-run`
+reports zero `due` accounts and attempts. Only then remove the retired key.
+No key change or live rewrap has been performed from this workspace.
+
 ### Deploy and provision the read-only MCP interface
 
 Why: MCP credentials are stored as token hashes in the new

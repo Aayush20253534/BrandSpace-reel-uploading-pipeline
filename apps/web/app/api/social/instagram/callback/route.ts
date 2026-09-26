@@ -3,10 +3,11 @@ import { env } from "@forge/config";
 import { Prisma, prisma } from "@forge/database";
 import {
   completeInstagramOAuth,
-  decryptSocialToken,
+  decryptSocialTokenFromKeyring,
   encryptSocialToken,
   hashInstagramOAuthState,
   parseSocialTokenEncryptionKey,
+  parseSocialTokenPreviousKeys,
   type InstagramOAuthResult,
 } from "@forge/social";
 import { requireRole, requireSession } from "../../../../../lib/auth-session";
@@ -17,8 +18,14 @@ function providerError(request: NextRequest) {
   return Boolean(request.nextUrl.searchParams.get("error")?.trim());
 }
 
-function readStagedResult(ciphertext: string, key: string) {
-  const value: unknown = JSON.parse(decryptSocialToken(ciphertext, key));
+function readStagedResult(
+  ciphertext: string,
+  key: string,
+  previousKeys: readonly string[],
+) {
+  const value: unknown = JSON.parse(
+    decryptSocialTokenFromKeyring(ciphertext, key, previousKeys).plaintext,
+  );
   if (!value || typeof value !== "object") {
     throw new Error("Invalid staged Instagram OAuth result");
   }
@@ -124,6 +131,10 @@ export async function GET(request: NextRequest) {
       );
     }
     parseSocialTokenEncryptionKey(env.SOCIAL_TOKEN_ENCRYPTION_KEY);
+    const previousKeys = parseSocialTokenPreviousKeys(
+      env.SOCIAL_TOKEN_PREVIOUS_KEYS,
+      env.SOCIAL_TOKEN_ENCRYPTION_KEY,
+    );
 
     let oauth: InstagramOAuthResult;
     let resultRecordedAt: Date;
@@ -131,6 +142,7 @@ export async function GET(request: NextRequest) {
       oauth = readStagedResult(
         attempt.resultCiphertext,
         env.SOCIAL_TOKEN_ENCRYPTION_KEY,
+        previousKeys,
       );
       resultRecordedAt = attempt.resultRecordedAt;
     } else {
