@@ -301,6 +301,7 @@ model MediaAsset {
   client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   analyses        MediaAnalysis[]
   reelSources     ReelSource[]
+  publicationDeliveries PublicationMediaDelivery[]
 
   @@unique([clientId, driveFileId])
   @@index([clientId, state, kind])
@@ -507,10 +508,36 @@ model PublishingJob {
   reelVersion         ReelVersion     @relation(fields: [reelVersionId], references: [id], onDelete: Restrict)
   socialAccount       SocialAccount   @relation(fields: [socialAccountId], references: [id], onDelete: Restrict)
   analyticsSnapshots  ReelAnalyticsSnapshot[]
+  mediaDelivery       PublicationMediaDelivery?
 
   @@index([state, scheduledAt])
   @@index([reelProjectId, createdAt])
   @@index([socialAccountId, scheduledAt])
+}
+
+enum PublicationMediaDeliveryState {
+  PREPARING
+  READY
+  DELETED
+}
+
+model PublicationMediaDelivery {
+  id              String                        @id @default(cuid())
+  publishingJobId String                        @unique
+  mediaAssetId    String
+  objectKey       String                        @unique
+  state           PublicationMediaDeliveryState @default(PREPARING)
+  sizeBytes       BigInt
+  expiresAt       DateTime
+  lockedAt        DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+  publishingJob   PublishingJob                 @relation(fields: [publishingJobId], references: [id], onDelete: Cascade)
+  mediaAsset      MediaAsset                    @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+
+  @@index([state, expiresAt])
+  @@index([mediaAssetId])
 }
 
 model ReelAnalyticsSnapshot {

@@ -77,6 +77,12 @@ const schema = z.object({
     .regex(/^v\d+\.\d+$/)
     .default("v26.0"),
 
+  PUBLICATION_S3_ENDPOINT: optionalUrl,
+  PUBLICATION_S3_REGION: optionalString,
+  PUBLICATION_S3_BUCKET: optionalString,
+  PUBLICATION_S3_ACCESS_KEY_ID: optionalString,
+  PUBLICATION_S3_SECRET_ACCESS_KEY: optionalString,
+
   GOOGLE_DRIVE_MODE: z.enum(["my-drive", "shared-drive"]).default("my-drive"),
 
   GOOGLE_DRIVE_AUTH_MODE: z

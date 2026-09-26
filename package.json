@@ -41,7 +41,8 @@
     "reel:schedule": "tsx scripts/reel-schedule.ts",
     "reel:queue:reconcile": "tsx scripts/reel-queue-reconcile.ts",
     "instagram:account:import": "tsx scripts/instagram-account-import.ts",
-    "instagram:account:list": "tsx scripts/instagram-account-list.ts"
+    "instagram:account:list": "tsx scripts/instagram-account-list.ts",
+    "publication:media": "tsx scripts/publication-media.ts"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

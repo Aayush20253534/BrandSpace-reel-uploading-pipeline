@@ -10,6 +10,10 @@ import {
 } from "@forge/queue";
 import { APP_NAME, PHASE } from "@forge/shared";
 import { startInstagramTokenLifecycle } from "./instagram-token-lifecycle.js";
+import {
+  cleanupPublicationMedia,
+  createTemporaryDelivery,
+} from "./publication-media.js";
 
 const logger = createLogger("worker");
 
@@ -24,6 +28,29 @@ logger.info("worker_started", {
 });
 
 const instagramTokenLifecycle = startInstagramTokenLifecycle();
+
+const publicationDeliveryConfigured = Boolean(
+  env.PUBLICATION_S3_ENDPOINT &&
+  env.PUBLICATION_S3_REGION &&
+  env.PUBLICATION_S3_BUCKET &&
+  env.PUBLICATION_S3_ACCESS_KEY_ID &&
+  env.PUBLICATION_S3_SECRET_ACCESS_KEY,
+);
+const temporaryDelivery = publicationDeliveryConfigured
+  ? createTemporaryDelivery()
+  : null;
+let mediaCleanupTimer: NodeJS.Timeout | null = null;
+if (temporaryDelivery) {
+  const cleanup = () =>
+    void cleanupPublicationMedia(temporaryDelivery).catch((error) => {
+      logger.error("publication_media_cleanup_failed", {
+        error: error instanceof Error ? error.name : "UnknownError",
+      });
+    });
+  cleanup();
+  mediaCleanupTimer = setInterval(cleanup, 30 * 60 * 1_000);
+  mediaCleanupTimer.unref();
+}
 
 let publishingWorker: ReturnType<typeof createPublishingWorker> | null = null;
 let publishingQueueClient: ReturnType<
@@ -281,6 +308,7 @@ const shutdown = async (signal: string) => {
 
   try {
     if (reconcileTimer) clearInterval(reconcileTimer);
+    if (mediaCleanupTimer) clearInterval(mediaCleanupTimer);
     instagramTokenLifecycle.stop();
     await publishingWorker?.close();
     await publishingQueueClient?.close();

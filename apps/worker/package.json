@@ -9,7 +9,7 @@
     "start": "node dist/bootstrap.js",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "node --test"
+    "test": "node --test --import tsx src/*.test.ts"
   },
   "dependencies": {
     "@forge/config": "*",
@@ -17,7 +17,8 @@
     "@forge/logger": "*",
     "@forge/queue": "*",
     "@forge/shared": "*",
-    "@forge/social": "*"
+    "@forge/social": "*",
+    "@forge/storage": "*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

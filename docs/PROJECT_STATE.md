@@ -4,10 +4,10 @@
 
 Phase 11 — Instagram Distribution
 
-Status: Phases 1–10, Phase 11.1 and Phase 11.2 are implemented and validated. Phase
-11.3 adds automatic long-lived Instagram token maintenance, refresh leasing,
-provider-error classification, reauthentication state transitions and lifecycle
-observability without exposing plaintext credentials.
+Status: Phases 1–10 and 11.1–11.3 are implemented. Phase 11.4 temporary media
+delivery is implemented and tested locally. Live acceptance awaits a private
+S3-compatible bucket and scoped credentials. The new migration has been validated
+but has not been applied to a live database.
 
 ## Completed
 
@@ -28,10 +28,15 @@ observability without exposing plaintext credentials.
 - Google Drive OAuth development path and Shared Drive-aware storage adapter.
 - AI provenance and usage accounting for model-backed stages.
 - Idempotent planning, rendering, QA, approval, scheduling and queue reconciliation.
+- Phase 11.3 automatic Instagram token lifecycle and reauthentication transitions.
+
+## Implemented, awaiting live acceptance
+
+- Phase 11.4 private S3-compatible temporary publication media delivery, signed
+  short-lived read URLs, durable references and expiry cleanup.
 
 ## Intentionally deferred
 
-- Temporary public media delivery for Meta ingestion.
 - Instagram container creation/status polling and `media_publish`.
 - Full operations dashboard.
 - Incremental Google Drive change-feed ingestion.
@@ -52,10 +57,11 @@ observability without exposing plaintext credentials.
    social token-encryption key.
 8. Connect an Instagram professional account through the server-side OAuth endpoint.
 9. Run the worker so due Instagram credentials are refreshed automatically.
-10. Run the full verification suite before each phase commit.
+10. Configure the private temporary publication bucket and its scoped credential
+    (see `HUMAN_ACTIONS.md`). Generate Prisma Client, apply the 11.4 migration
+    and build packages before starting the worker.
+11. Run the full verification suite before each phase commit.
 
 ## Next phase
 
-Phase 11.4 — Instagram media delivery foundation:
-provide short-lived public HTTPS delivery for generated reel artifacts so Meta can
-ingest media without changing Google Drive's role as the canonical binary store.
+Phase 11.5 — Instagram Reel container creation after Phase 11.4 gates pass.

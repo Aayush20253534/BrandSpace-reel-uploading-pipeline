@@ -5,6 +5,8 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { google, type drive_v3 } from "googleapis";
 
+export * from "./publication.js";
+
 export const GOOGLE_DRIVE_FOLDER_MIME_TYPE =
   "application/vnd.google-apps.folder";
 
