@@ -56,6 +56,7 @@ test("OAuth completion exchanges tokens, verifies profile and records requested 
   const fetchImpl: typeof fetch = async (input, init) => {
     const url = input instanceof URL ? input.toString() : String(input);
     calls.push(url);
+    assert.ok(init?.signal instanceof AbortSignal);
 
     if (url === "https://api.instagram.com/oauth/access_token") {
       assert.equal(init?.method, "POST");
@@ -178,9 +179,10 @@ test("OAuth accepts separate authorization id and professional account user_id",
 
 test("refreshes a long-lived Instagram token through the provider refresh endpoint", async () => {
   const calls: URL[] = [];
-  const fetchImpl: typeof fetch = async (input) => {
+  const fetchImpl: typeof fetch = async (input, init) => {
     const url = input instanceof URL ? input : new URL(String(input));
     calls.push(url);
+    assert.ok(init?.signal instanceof AbortSignal);
     return Response.json({
       access_token: "rotated-long-token",
       token_type: "bearer",

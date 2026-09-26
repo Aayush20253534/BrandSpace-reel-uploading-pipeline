@@ -45,6 +45,8 @@ migration and existing-data review.
   membership RBAC, database rate limiting, bounded read tools and token audit.
 - Phase 17 social token keyring support and audited rewrap command; worker
   refresh errors now store stable sanitized messages.
+- Phase 17 bounded Instagram provider request deadlines for OAuth, token
+  refresh and profile verification.
 
 ## Implemented, awaiting live acceptance
 

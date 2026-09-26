@@ -19,6 +19,9 @@ because Prisma 6.19.3 does not model it in `schema.prisma`.
 
 The provider's free-form error description and raw exception are not returned
 or logged by the callback. Logs contain only an error class and Prisma code.
+Each Instagram authorization, token exchange, refresh and profile request now
+has a 20-second abort deadline, so an unresponsive provider cannot hold a web
+request or worker claim indefinitely.
 Stored OAuth results use the same AES-256-GCM key as social tokens and expire
 with their ten-minute state; the connect endpoint prunes expired attempts for
 the user. A process failure after provider exchange but before the encrypted

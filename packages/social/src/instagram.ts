@@ -62,6 +62,11 @@ export class InstagramAccountMismatchError extends Error {
 
 type FetchLike = typeof fetch;
 type JsonRecord = Record<string, unknown>;
+const INSTAGRAM_REQUEST_TIMEOUT_MS = 20_000;
+
+function requestSignal() {
+  return AbortSignal.timeout(INSTAGRAM_REQUEST_TIMEOUT_MS);
+}
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -176,6 +181,7 @@ async function exchangeAuthorizationCode(
       },
       body,
       cache: "no-store",
+      signal: requestSignal(),
     },
   );
   const payload = await readJson(
@@ -210,6 +216,7 @@ async function exchangeLongLivedToken(
     method: "GET",
     headers: { accept: "application/json" },
     cache: "no-store",
+    signal: requestSignal(),
   });
   const payload = await readJson(
     response,
@@ -243,6 +250,7 @@ export async function refreshInstagramLongLivedToken(
     method: "GET",
     headers: { accept: "application/json" },
     cache: "no-store",
+    signal: requestSignal(),
   });
   const payload = await readJson(response, "Instagram token refresh");
 
@@ -277,6 +285,7 @@ async function fetchProfile(
       accept: "application/json",
     },
     cache: "no-store",
+    signal: requestSignal(),
   });
   const raw = await readJson(response, "Instagram profile verification");
 
