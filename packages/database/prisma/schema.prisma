@@ -331,6 +331,7 @@ model MediaAsset {
   @@unique([clientId, driveFileId])
   @@index([clientId, state, kind])
   @@index([clientId, checksum])
+  @@index([clientId, createdAt, id])
 }
 
 model MediaAnalysis {
@@ -376,6 +377,7 @@ model ReelProject {
 
   @@index([clientId, state, createdAt])
   @@index([clientId, campaignKey])
+  @@index([clientId, updatedAt, id])
 }
 
 model ReelVersion {
@@ -497,6 +499,7 @@ model SocialAccount {
   @@index([platform, providerAccountId])
   @@index([platform, status, tokenExpiresAt])
   @@index([platform, status, tokenRefreshLockedAt])
+  @@index([clientId, updatedAt, id])
 }
 
 model SocialOAuthAttempt {
@@ -541,7 +544,7 @@ model PublishingJob {
   analyticsSnapshots  ReelAnalyticsSnapshot[]
   mediaDelivery       PublicationMediaDelivery?
 
-  @@index([state, scheduledAt])
+  @@index([state, scheduledAt, createdAt])
   @@index([reelProjectId, createdAt])
   @@index([socialAccountId, scheduledAt])
 }
@@ -597,7 +600,7 @@ model AuditEvent {
   client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, createdAt])
-  @@index([clientId, createdAt])
+  @@index([clientId, createdAt, id])
   @@index([entityType, entityId, createdAt])
 }
 

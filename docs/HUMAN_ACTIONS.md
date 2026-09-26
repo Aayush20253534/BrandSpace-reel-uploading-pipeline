@@ -55,6 +55,19 @@ What phase it blocks: Live acceptance of 11.4 and real Instagram publication in
 
 ## Non-blocking production setup
 
+### Review the Phase 18 index migration in staging
+
+Why: The new client/date indexes improve bounded operator and MCP lists and
+worker reconciliation, but normal PostgreSQL index builds can pause writes on
+large tables. Their benefit and lock duration need a representative staging
+database before production deployment.
+
+Exact location: Apply `20260926040000_hot_query_indexes` through the normal
+`npm run db:deploy` staging release, then compare `EXPLAIN (ANALYZE, BUFFERS)`
+for the hot queries in `PHASE_18_SCALE_COST.md` and measure deploy lock time.
+Schedule production application when write traffic is low. No live migration
+or load test has run from this workspace.
+
 ### Rotate the social token encryption key when needed
 
 Why: Instagram credentials and short-lived staged OAuth results use the active

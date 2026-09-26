@@ -47,6 +47,8 @@ migration and existing-data review.
   refresh errors now store stable sanitized messages.
 - Phase 17 bounded Instagram provider request deadlines for OAuth, token
   refresh and profile verification.
+- Phase 18 targeted hot-query indexes and a scale/cost review with a safe MCP
+  synthetic workload tool; live capacity baselines remain pending.
 
 ## Implemented, awaiting live acceptance
 

@@ -7,5 +7,10 @@
     "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["scripts/agent-token.ts", "scripts/social-token-rotate.ts"]
+  "include": [
+    "scripts/agent-token.ts",
+    "scripts/social-token-rotate.ts",
+    "scripts/mcp-load.ts",
+    "scripts/mcp-load.test.ts"
+  ]
 }
