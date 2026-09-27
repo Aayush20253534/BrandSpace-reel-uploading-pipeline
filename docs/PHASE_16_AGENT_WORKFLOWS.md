@@ -34,7 +34,7 @@ when access is no longer needed.
 With a client-specific write credential, an authorized editor can call
 `create_reel_project` once per UUID idempotency key to create a draft. The
 agent should report the resulting project ID and `DRAFT` state. Planning,
-rendering, QA, approval decisions and retrying still need separate mutation
+rendering, QA and approval decisions still need separate mutation
 tools with narrow schemas and audit events. Until those tools exist, an agent
 can only propose those actions. No prompt should bypass the approval gates.
 
@@ -56,3 +56,12 @@ job and audit event in one transaction. The worker's existing reconciliation
 loop enqueues the job from PostgreSQL; the tool does not call Instagram.
 Live publication still depends on the separately controlled worker switch,
 verified Meta contract, test account and exact real-post authorization.
+
+For a pending job whose Redis record is absent or failed, an owner, admin or
+content manager may call `reconcile_publishing_queue_job` with a fresh UUID
+idempotency key. The tool rechecks live membership, tenant ownership, the
+stored remote-write intents, the durable five-claim budget and the 15-minute
+start window. It audits the request before touching Redis. Retrying the same
+key after a Redis failure is safe: PostgreSQL retains the request and the queue
+uses a deterministic job ID. The tool cannot reconcile a published, ambiguous
+or exhausted job. Operator review remains required for those states.

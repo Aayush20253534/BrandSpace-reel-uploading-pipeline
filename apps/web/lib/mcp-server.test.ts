@@ -141,3 +141,22 @@ test("scheduling is limited to client-scoped publishing roles", async () => {
     ),
   );
 });
+
+test("queue reconciliation shares the publishing role and scoped credential gate", async () => {
+  const allowed = await toolNames(
+    "CONTENT_MANAGER",
+    ["read", "write"],
+    "client-a",
+  );
+  assert.ok(allowed.includes("reconcile_publishing_queue_job"));
+  assert.ok(
+    !(await toolNames("EDITOR", ["read", "write"], "client-a")).includes(
+      "reconcile_publishing_queue_job",
+    ),
+  );
+  assert.ok(
+    !(await toolNames("OWNER", ["read"], "client-a")).includes(
+      "reconcile_publishing_queue_job",
+    ),
+  );
+});

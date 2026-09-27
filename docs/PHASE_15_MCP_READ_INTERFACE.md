@@ -41,9 +41,10 @@ in a privileged operator environment; it is not interactive authentication.
 
 Read credentials remain read only. A separate short-lived, client-specific
 write scope exposes `create_reel_project`, `request_reel_approval` and, for
-publishing roles, `schedule_approved_reel`. Scheduling requires the recorded
+publishing roles, `schedule_approved_reel` and
+`reconcile_publishing_queue_job`. Scheduling requires the recorded
 human approval of the exact active version and creates only a PostgreSQL job;
-the queue reconciler handles dispatch. Planning/render/QA and retry mutation
+the queue reconciler handles dispatch. Planning/render/QA mutation
 tools, user-facing OAuth authorization for ChatGPT, and live deployment
 acceptance are still pending. See `PHASE_16_AGENT_WORKFLOWS.md` for the write
 sequence and safety gates.

@@ -8,6 +8,7 @@ import {
   requestAgentReelApproval,
 } from "./mcp-mutations";
 import { scheduleApprovedReel } from "./mcp-scheduling";
+import { reconcileAgentPublishingQueueJob } from "./mcp-queue-reconcile";
 
 const page = z.number().int().min(1).max(100).default(1);
 const limit = z.number().int().min(1).max(50).default(20);
@@ -186,6 +187,41 @@ export function createForgeMcpServer(context: AgentContext) {
                   error instanceof AgentMutationError
                     ? error.code
                     : "Unable to schedule approved reel",
+              },
+            ],
+            isError: true,
+          };
+        }
+      },
+    );
+    server.registerTool(
+      "reconcile_publishing_queue_job",
+      {
+        description:
+          "Request bounded BullMQ reconciliation for one pending publishing job belonging to this client. Rejects remote-write intents, exhausted attempts and stale schedules. This can trigger publication only when the worker's separate live switch and exact-version human approval gates permit it.",
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: true,
+        },
+        inputSchema: z.object({
+          clientId,
+          publishingJobId: z.string().min(1).max(128),
+          idempotencyKey: z.string().uuid(),
+        }),
+      },
+      async (input) => {
+        try {
+          return result(await reconcileAgentPublishingQueueJob(context, input));
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  error instanceof AgentMutationError
+                    ? error.code
+                    : "Unable to reconcile publishing queue job",
               },
             ],
             isError: true,

@@ -79,6 +79,9 @@ migration and existing-data review.
   Login publishing route/status contract and media insights permission. OAuth
   now persists optional requested insights scope across its callback; the
   collector sends the documented `day` period and checks that scope.
+- Phase 15 MCP queue reconciliation accepts only a client-scoped publishing
+  operator, audits a durable idempotent request and refuses remote-write
+  intents, exhausted claims or a stale start window.
 
 ## Implemented, awaiting live acceptance
 
@@ -100,7 +103,7 @@ migration and existing-data review.
   collection windows. The Meta app setup and API reference screens give
   conflicting guidance about Instagram Login insights, so staging must resolve
   that before enabling collection.
-- Phase 15 MCP planning/render/QA/retry mutations and OAuth authorization for
+- Phase 15 MCP planning/render/QA mutations and OAuth authorization for
   hosted ChatGPT clients; current bearer-token access supports scoped reads,
   draft creation, approval requests and guarded scheduling.
 
