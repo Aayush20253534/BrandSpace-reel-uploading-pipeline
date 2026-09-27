@@ -20,6 +20,8 @@ test("manual reconciliation never replays an ambiguous or exhausted publish", ()
     attemptCount: 0,
     externalContainerId: null,
     externalMediaId: null,
+    containerCreateIntentAt: null,
+    publishIntentAt: null,
   };
   assert.equal(isSafeToReconcilePublishingJob(scheduled), true);
   assert.equal(
@@ -32,6 +34,8 @@ test("manual reconciliation never replays an ambiguous or exhausted publish", ()
     { ...scheduled, attemptCount: 5 },
     { ...scheduled, externalContainerId: "container-1" },
     { ...scheduled, externalMediaId: "media-1" },
+    { ...scheduled, containerCreateIntentAt: new Date() },
+    { ...scheduled, publishIntentAt: new Date() },
   ]) {
     assert.equal(isSafeToReconcilePublishingJob(unsafe), false);
   }

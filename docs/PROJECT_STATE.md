@@ -62,6 +62,9 @@ migration and existing-data review.
 - Phase 13 read-only Instagram insights collection, bounded capture schedule,
   immutable provider-response snapshots and dashboard display. Disabled until
   the exact Instagram Login metric allowlist is verified and configured.
+- Phase 17 replay hardening: dispatch and both queue reconciliation paths reject
+  stored remote-write intents and exhausted dispatch budgets; operator health
+  shows reauthentication and analytics attention counts.
 
 ## Implemented, awaiting live acceptance
 

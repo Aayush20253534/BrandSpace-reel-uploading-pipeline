@@ -115,6 +115,8 @@ export async function reconcilePublishingJob(formData: FormData) {
       scheduledAt: true,
       externalContainerId: true,
       externalMediaId: true,
+      containerCreateIntentAt: true,
+      publishIntentAt: true,
     },
   });
   if (!job) throw new Error("JOB_NOT_FOUND");

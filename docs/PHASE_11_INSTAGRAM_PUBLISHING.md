@@ -31,6 +31,8 @@ the switch or make a live publish.
 
 An uncertain create or publish outcome moves the job to `NEEDS_ATTENTION`.
 No worker automatically repeats a write whose request might have reached Meta.
+Queue reconciliation and dispatch also reject any pending row with a stored
+remote-write intent or exhausted dispatch attempts.
 This can leave a job awaiting reconciliation even if a remote action succeeded;
 that is safer than creating a duplicate post. Only a verified media ID can be
 attached to an ambiguous publish through the owner/admin reconciliation CLI.

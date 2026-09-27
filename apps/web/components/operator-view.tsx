@@ -273,6 +273,8 @@ export async function OperatorView({
       scheduled,
       attention,
       accounts,
+      reauthAccounts,
+      insightsAttention,
       recent,
       upcoming,
     ] = await Promise.all([
@@ -292,6 +294,15 @@ export async function OperatorView({
         where: { reelProject: { clientId }, state: "NEEDS_ATTENTION" },
       }),
       prisma.socialAccount.count({ where: { clientId, status: "CONNECTED" } }),
+      prisma.socialAccount.count({
+        where: { clientId, status: "NEEDS_REAUTH" },
+      }),
+      prisma.analyticsCollection.count({
+        where: {
+          publishingJob: { reelProject: { clientId } },
+          state: "NEEDS_ATTENTION",
+        },
+      }),
       prisma.reelProject.findMany({
         where: { clientId },
         orderBy: { updatedAt: "desc" },
@@ -327,12 +338,14 @@ export async function OperatorView({
       ["Scheduled", scheduled, "schedule"],
       ["Needs attention", attention, "publishing"],
       ["Connected accounts", accounts, "accounts"],
+      ["Reconnect accounts", reauthAccounts, "accounts"],
+      ["Insights blocked", insightsAttention, "analytics"],
     ] as const;
     const orgId = context.membership!.organization.id;
     return (
       <>
         <Header section={section} clientName={client.name} />
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
           {metrics.map(([label, value, target]) => (
             <Link
               key={label}
@@ -790,6 +803,8 @@ export async function OperatorView({
             attemptCount: true,
             externalContainerId: true,
             externalMediaId: true,
+            containerCreateIntentAt: true,
+            publishIntentAt: true,
             lastErrorCode: true,
             reelProject: { select: { title: true } },
             socialAccount: { select: { username: true } },
@@ -914,6 +929,21 @@ export async function OperatorView({
       break;
     }
     case "analytics": {
+      const blocked = await prisma.analyticsCollection.findMany({
+        where: {
+          publishingJob: { reelProject: { clientId } },
+          state: "NEEDS_ATTENTION",
+        },
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        take: 5,
+        select: {
+          id: true,
+          lastErrorCode: true,
+          publishingJob: {
+            select: { reelProject: { select: { title: true } } },
+          },
+        },
+      });
       const result = takePage(
         await prisma.reelAnalyticsSnapshot.findMany({
           where: { publishingJob: { reelProject: { clientId } } },
@@ -932,30 +962,50 @@ export async function OperatorView({
       );
       hasNext = result.hasNext;
       table = (
-        <Table
-          columns={["Published reel", "Provider metrics", "Captured"]}
-          empty="Provider insights will appear here after the analytics collector is enabled."
-          rows={result.items.map((item) => ({
-            id: item.id,
-            cells: [
-              <span key="title" className="font-semibold">
-                {item.publishingJob.reelProject.title}
-              </span>,
-              <span key="metrics" className="text-[12px]">
-                {providerMetricValues(item.metrics)
-                  .map(
-                    ([name, value]) =>
-                      `${name}: ${value.toLocaleString("en-IN")}`,
-                  )
-                  .join(" · ") || "No numeric metrics"}
-              </span>,
-              date(
-                providerCollectedAt(item.metrics) ?? item.capturedAt,
-                timezone,
-              ),
-            ],
-          }))}
-        />
+        <>
+          {blocked.length > 0 && (
+            <section className="mb-5">
+              <h2 className="mb-3 text-[15px] font-semibold">
+                Collections needing attention
+              </h2>
+              <Table
+                columns={["Published reel", "Stable error code"]}
+                empty="No blocked collections."
+                rows={blocked.map((item) => ({
+                  id: item.id,
+                  cells: [
+                    item.publishingJob.reelProject.title,
+                    item.lastErrorCode ?? "UNKNOWN",
+                  ],
+                }))}
+              />
+            </section>
+          )}
+          <Table
+            columns={["Published reel", "Provider metrics", "Collected"]}
+            empty="Provider insights will appear here after the analytics collector is enabled."
+            rows={result.items.map((item) => ({
+              id: item.id,
+              cells: [
+                <span key="title" className="font-semibold">
+                  {item.publishingJob.reelProject.title}
+                </span>,
+                <span key="metrics" className="text-[12px]">
+                  {providerMetricValues(item.metrics)
+                    .map(
+                      ([name, value]) =>
+                        `${name}: ${value.toLocaleString("en-IN")}`,
+                    )
+                    .join(" · ") || "No numeric metrics"}
+                </span>,
+                date(
+                  providerCollectedAt(item.metrics) ?? item.capturedAt,
+                  timezone,
+                ),
+              ],
+            }))}
+          />
+        </>
       );
       break;
     }

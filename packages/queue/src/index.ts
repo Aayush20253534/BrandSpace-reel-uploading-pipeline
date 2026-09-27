@@ -11,12 +11,16 @@ export function isSafeToReconcilePublishingJob(job: {
   attemptCount: number;
   externalContainerId: string | null;
   externalMediaId: string | null;
+  containerCreateIntentAt: Date | null;
+  publishIntentAt: Date | null;
 }) {
   return (
     (job.state === "SCHEDULED" || job.state === "RETRY_WAIT") &&
     job.attemptCount < PUBLISHING_MAX_ATTEMPTS &&
     !job.externalContainerId &&
-    !job.externalMediaId
+    !job.externalMediaId &&
+    !job.containerCreateIntentAt &&
+    !job.publishIntentAt
   );
 }
 

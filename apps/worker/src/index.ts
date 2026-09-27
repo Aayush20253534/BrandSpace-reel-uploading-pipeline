@@ -5,6 +5,7 @@ import {
   createPublishingQueueClient,
   createPublishingWorker,
   isFinalPublishingAttempt,
+  PUBLISHING_MAX_ATTEMPTS,
   type PublishingDispatchContext,
   type PublishingDispatchJob,
 } from "@forge/queue";
@@ -85,6 +86,7 @@ async function markQueueStateMismatch(
       state: {
         in: ["SCHEDULED", "RETRY_WAIT"],
       },
+      attemptCount: { lt: PUBLISHING_MAX_ATTEMPTS },
     },
     data: {
       state: "NEEDS_ATTENTION",
@@ -113,6 +115,10 @@ async function reconcilePublishingQueue() {
       state: {
         in: ["SCHEDULED", "RETRY_WAIT"],
       },
+      externalContainerId: null,
+      externalMediaId: null,
+      containerCreateIntentAt: null,
+      publishIntentAt: null,
       scheduledAt: {
         lte: new Date(Date.now() + RECONCILE_LOOKAHEAD_MS),
       },
@@ -222,6 +228,10 @@ if (env.REDIS_URL) {
         select: {
           state: true,
           idempotencyKey: true,
+          externalContainerId: true,
+          externalMediaId: true,
+          containerCreateIntentAt: true,
+          publishIntentAt: true,
           reelProject: {
             select: {
               id: true,
@@ -275,28 +285,36 @@ if (env.REDIS_URL) {
               },
               select: { id: true },
             });
-      const guardError = publishingPreflightError({
-        jobState: pending.state,
-        jobProjectId: job.reelProjectId,
-        jobVersionId: job.reelVersionId,
-        jobAccountId: job.socialAccountId,
-        project: {
-          id: pending.reelProject.id,
-          state: pending.reelProject.state,
-          activeVersion: pending.reelProject.activeVersion,
-          clientId: pending.reelProject.clientId,
-          approvalMode: pending.reelProject.client.approvalMode,
-        },
-        version: pending.reelVersion,
-        account: {
-          id: pending.socialAccount.id,
-          clientId: pending.socialAccount.clientId,
-          status: pending.socialAccount.status,
-          hasCredential: Boolean(pending.socialAccount.accessTokenCiphertext),
-          tokenExpiresAt: pending.socialAccount.tokenExpiresAt,
-        },
-        hasVersionApproval: Boolean(approval),
-      });
+      const guardError =
+        pending.externalContainerId ||
+        pending.externalMediaId ||
+        pending.containerCreateIntentAt ||
+        pending.publishIntentAt
+          ? "REMOTE_WRITE_INTENT_PRESENT"
+          : publishingPreflightError({
+              jobState: pending.state,
+              jobProjectId: job.reelProjectId,
+              jobVersionId: job.reelVersionId,
+              jobAccountId: job.socialAccountId,
+              project: {
+                id: pending.reelProject.id,
+                state: pending.reelProject.state,
+                activeVersion: pending.reelProject.activeVersion,
+                clientId: pending.reelProject.clientId,
+                approvalMode: pending.reelProject.client.approvalMode,
+              },
+              version: pending.reelVersion,
+              account: {
+                id: pending.socialAccount.id,
+                clientId: pending.socialAccount.clientId,
+                status: pending.socialAccount.status,
+                hasCredential: Boolean(
+                  pending.socialAccount.accessTokenCiphertext,
+                ),
+                tokenExpiresAt: pending.socialAccount.tokenExpiresAt,
+              },
+              hasVersionApproval: Boolean(approval),
+            });
       if (guardError) {
         const blocked = await prisma.$transaction(async (tx) => {
           const updated = await tx.publishingJob.updateMany({
@@ -342,6 +360,10 @@ if (env.REDIS_URL) {
           state: {
             in: ["SCHEDULED", "RETRY_WAIT"],
           },
+          externalContainerId: null,
+          externalMediaId: null,
+          containerCreateIntentAt: null,
+          publishIntentAt: null,
           reelProject: {
             state: "SCHEDULED",
             activeVersion: pending.reelVersion.version,

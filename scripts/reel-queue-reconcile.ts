@@ -1,6 +1,9 @@
 import { loadEnvFile } from "node:process";
 import { prisma } from "../packages/database/src/index.ts";
-import { createPublishingQueueClient } from "../packages/queue/src/index.ts";
+import {
+  createPublishingQueueClient,
+  PUBLISHING_MAX_ATTEMPTS,
+} from "../packages/queue/src/index.ts";
 
 loadEnvFile(".env");
 
@@ -25,6 +28,11 @@ async function main() {
         state: {
           in: ["SCHEDULED", "RETRY_WAIT"],
         },
+        attemptCount: { lt: PUBLISHING_MAX_ATTEMPTS },
+        externalContainerId: null,
+        externalMediaId: null,
+        containerCreateIntentAt: null,
+        publishIntentAt: null,
       },
       select: {
         id: true,
