@@ -7,6 +7,7 @@ import {
   createAgentReelProject,
   requestAgentReelApproval,
 } from "./mcp-mutations";
+import { scheduleApprovedReel } from "./mcp-scheduling";
 
 const page = z.number().int().min(1).max(100).default(1);
 const limit = z.number().int().min(1).max(50).default(20);
@@ -141,6 +142,50 @@ export function createForgeMcpServer(context: AgentContext) {
                   error instanceof AgentMutationError
                     ? error.code
                     : "Unable to request reel approval",
+              },
+            ],
+            isError: true,
+          };
+        }
+      },
+    );
+  }
+
+  if (
+    context.clientId &&
+    context.scopes.includes("write") &&
+    ["OWNER", "ADMIN", "CONTENT_MANAGER"].includes(context.role)
+  ) {
+    server.registerTool(
+      "schedule_approved_reel",
+      {
+        description:
+          "Schedule one QA-passed reel version for an Instagram account. Requires a recorded human approval for the exact version, even for automatic-approval clients. Creates durable database intent; queue reconciliation dispatches it. A live worker can publish at the scheduled time only when the separate live switch is enabled.",
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: true,
+        },
+        inputSchema: z.object({
+          clientId,
+          reelProjectId: z.string().min(1).max(128),
+          socialAccountId: z.string().min(1).max(128),
+          scheduledAt: z.string().datetime({ offset: false }),
+          idempotencyKey: z.string().uuid(),
+        }),
+      },
+      async (input) => {
+        try {
+          return result(await scheduleApprovedReel(context, input));
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  error instanceof AgentMutationError
+                    ? error.code
+                    : "Unable to schedule approved reel",
               },
             ],
             isError: true,

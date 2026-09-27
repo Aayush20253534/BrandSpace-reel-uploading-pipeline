@@ -65,6 +65,9 @@ migration and existing-data review.
 - Phase 17 replay hardening: dispatch and both queue reconciliation paths reject
   stored remote-write intents and exhausted dispatch budgets; operator health
   shows reauthentication and analytics attention counts.
+- Phase 17 database readiness endpoint and CI gate for agent scripts.
+- Phase 15 client-scoped MCP scheduling intent with exact-version human approval,
+  QA/artifact/account guards, transaction-bound idempotency and audit.
 
 ## Implemented, awaiting live acceptance
 
@@ -82,9 +85,9 @@ migration and existing-data review.
 - Subjective AI-assisted creative scoring.
 - Phase 13 live insights acceptance and Phase 14 outcome aggregation await verified Instagram Login insights metrics,
   real snapshots and compatible collection windows.
-- Phase 15 MCP mutations beyond draft creation and approval requests, and OAuth authorization for
-  hosted ChatGPT clients; current bearer-token access supports scoped reads
-  and draft-only creation.
+- Phase 15 MCP planning/render/QA/retry mutations and OAuth authorization for
+  hosted ChatGPT clients; current bearer-token access supports scoped reads,
+  draft creation, approval requests and guarded scheduling.
 
 ## Current operator setup
 

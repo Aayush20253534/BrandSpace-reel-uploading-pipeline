@@ -118,3 +118,26 @@ test("approval requests require the same client-scoped write boundary", async ()
     ),
   );
 });
+
+test("scheduling is limited to client-scoped publishing roles", async () => {
+  assert.ok(
+    (
+      await toolNames("CONTENT_MANAGER", ["read", "write"], "client-a")
+    ).includes("schedule_approved_reel"),
+  );
+  assert.ok(
+    !(await toolNames("EDITOR", ["read", "write"], "client-a")).includes(
+      "schedule_approved_reel",
+    ),
+  );
+  assert.ok(
+    !(await toolNames("OWNER", ["read"], "client-a")).includes(
+      "schedule_approved_reel",
+    ),
+  );
+  assert.ok(
+    !(await toolNames("OWNER", ["read", "write"])).includes(
+      "schedule_approved_reel",
+    ),
+  );
+});

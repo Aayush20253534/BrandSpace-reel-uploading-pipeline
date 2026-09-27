@@ -29,16 +29,14 @@ when access is no longer needed.
   Return a proposal for human review. Do not claim a reel was created or
   scheduled from a read-only tool result.
 
-## Pending write path
+## Client-scoped write path
 
 With a client-specific write credential, an authorized editor can call
 `create_reel_project` once per UUID idempotency key to create a draft. The
 agent should report the resulting project ID and `DRAFT` state. Planning,
-rendering, QA, approval decisions, scheduling and retrying still need separate
-mutation tools with narrow schemas and audit events. Until those tools exist,
-an agent can only propose those actions. A real Instagram publish still
-requires the exact version's approval and separate explicit operator
-authorization for the real post. No prompt should bypass those gates.
+rendering, QA, approval decisions and retrying still need separate mutation
+tools with narrow schemas and audit events. Until those tools exist, an agent
+can only propose those actions. No prompt should bypass the approval gates.
 
 After an active reel version passes both technical and creative QA, an editor
 with a client-scoped write credential can call `request_reel_approval` with a
@@ -46,3 +44,15 @@ fresh UUID idempotency key. This records a pending human review for that exact
 version. It cannot approve or publish. For a client using automatic content
 approval, the request reopens an unscheduled approved project for human review;
 the Instagram worker still requires an explicit approved decision.
+
+An owner, admin or content manager with a client-scoped write credential can
+call `schedule_approved_reel` with a fresh UUID idempotency key, project ID,
+Instagram account ID and an exact UTC timestamp such as
+`2026-10-02T10:00:00.000Z`. The tool accepts a time from one minute to 90 days
+ahead. It requires the active version's passed technical and creative QA,
+ready generated artifact and recorded human approval for that exact version,
+including on an automatic-approval client. It writes a durable `SCHEDULED`
+job and audit event in one transaction. The worker's existing reconciliation
+loop enqueues the job from PostgreSQL; the tool does not call Instagram.
+Live publication still depends on the separately controlled worker switch,
+verified Meta contract, test account and exact real-post authorization.

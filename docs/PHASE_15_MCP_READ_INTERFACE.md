@@ -40,8 +40,12 @@ the repository. The CLI actor ID is trusted only because the command must run
 in a privileged operator environment; it is not interactive authentication.
 
 Read credentials remain read only. A separate short-lived, client-specific
-write scope can expose the draft-only `create_reel_project` tool described in
-`PHASE_15_MCP_DRAFT_CREATION.md`. Further mutation tools, user-facing OAuth
-authorization for ChatGPT, and live deployment acceptance are still pending.
+write scope exposes `create_reel_project`, `request_reel_approval` and, for
+publishing roles, `schedule_approved_reel`. Scheduling requires the recorded
+human approval of the exact active version and creates only a PostgreSQL job;
+the queue reconciler handles dispatch. Planning/render/QA and retry mutation
+tools, user-facing OAuth authorization for ChatGPT, and live deployment
+acceptance are still pending. See `PHASE_16_AGENT_WORKFLOWS.md` for the write
+sequence and safety gates.
 The SDK's current [HTTP serving guide](https://ts.sdk.modelcontextprotocol.io/v2/serving/http)
 describes the handler and transport used here.
