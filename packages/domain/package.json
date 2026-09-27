@@ -11,6 +11,10 @@
     "./approval": {
       "types": "./src/approval-service.ts",
       "default": "./dist/approval-service.js"
+    },
+    "./feedback": {
+      "types": "./src/feedback.ts",
+      "default": "./dist/feedback.js"
     }
   },
   "scripts": {

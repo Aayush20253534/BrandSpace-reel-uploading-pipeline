@@ -19,8 +19,13 @@ when access is no longer needed.
 - **Compare recent reel performance:** Call `list_analytics_snapshots` for the
   same client and compare captured metrics by job and timestamp. Say when no
   snapshots exist; the Instagram insights collector is not live yet.
+- **Inspect creative history:** Call `list_feedback_observations` for the same
+  client to see versioned features and exact reel, job and snapshot references.
+  Its creative usage counts do not establish performance or causality. Use
+  `list_analytics_snapshots` to inspect provider-returned metrics separately.
 - **Suggest a content plan:** Read `get_brand_profile`,
-  `list_media_intelligence`, and available analytics for the same client.
+  `list_media_intelligence`, `list_feedback_observations`, and available
+  analytics for the same client.
   Return a proposal for human review. Do not claim a reel was created or
   scheduled from a read-only tool result.
 

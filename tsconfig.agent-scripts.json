@@ -11,6 +11,7 @@
     "scripts/agent-token.ts",
     "scripts/social-token-rotate.ts",
     "scripts/mcp-load.ts",
-    "scripts/mcp-load.test.ts"
+    "scripts/mcp-load.test.ts",
+    "scripts/feedback-sync.ts"
   ]
 }

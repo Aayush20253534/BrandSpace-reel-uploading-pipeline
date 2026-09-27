@@ -55,6 +55,23 @@ What phase it blocks: Live acceptance of 11.4 and real Instagram publication in
 
 ## Non-blocking production setup
 
+### Apply and review the Phase 14 feedback migration in staging
+
+Why: Versioned observations require the new `ReelFeedbackObservation` table.
+The sync reads historical versions and analytics snapshots, then inserts
+immutable rows; no live database has been migrated or backfilled here.
+
+Exact location: In the staging release environment, apply migration
+`20260926060000_reel_feedback_observations` with `npm run db:deploy`, build the
+domain package, and run `npm run feedback:sync -- <client-id>` for each test
+client. Review the scanned/inserted counts and source links described in
+`PHASE_14_FEEDBACK_LOOP.md`. Repeat in production only after staging review
+and normal database backup. Re-run after new versions or snapshots arrive.
+
+Expected result: One version observation per ReelVersion and one snapshot
+observation per ReelAnalyticsSnapshot for each client. A second run inserts
+zero rows. Fields unsupported by stored data remain explicitly unknown.
+
 ### Review the Phase 18 index migration in staging
 
 Why: The new client/date indexes improve bounded operator and MCP lists and

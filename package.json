@@ -47,6 +47,7 @@
     "agent:token": "tsx scripts/agent-token.ts",
     "social:token:rotate": "tsx scripts/social-token-rotate.ts",
     "scale:mcp-load": "tsx scripts/mcp-load.ts",
+    "feedback:sync": "tsx scripts/feedback-sync.ts",
     "publication:media": "tsx scripts/publication-media.ts"
   },
   "devDependencies": {

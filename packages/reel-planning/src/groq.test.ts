@@ -60,7 +60,7 @@ test("Groq provider returns a normalized strict reel blueprint", async () => {
   assert.equal(result.model, "qwen/qwen3.8-27b");
   assert.equal(result.inputTokens, 120);
   assert.equal(result.outputTokens, 80);
-  assert.equal(result.promptVersion, "reel-planning-prompt-v2");
+  assert.equal(result.promptVersion, "reel-planning-prompt-v3");
   assert.equal(result.blueprint.title, context.title);
   assert.equal(result.blueprint.objective, context.objective);
   assert.equal(result.blueprint.clips[0]?.mediaAssetId, "asset-1");
@@ -119,4 +119,32 @@ test("Groq provider resolves source boundaries deterministically", async () => {
   assert.equal(result.blueprint.clips[0]?.sceneIndex, 7);
   assert.equal(result.blueprint.clips[0]?.startMs, 31467);
   assert.equal(result.blueprint.clips[0]?.endMs, 35633);
+});
+
+test("planner receives recent creative usage without performance claims", async () => {
+  let request: unknown;
+  const capture = {
+    chat: {
+      completions: {
+        create: async (input: unknown) => {
+          request = input;
+          return { choices: [{ message: { content: validContent } }] };
+        },
+      },
+    },
+  } as unknown as OpenAI;
+  await new GroqReelPlanningProvider(capture).plan({
+    ...context,
+    feedback: {
+      schemaVersion: "reel-feedback-v1",
+      observationIds: ["observation-1", "observation-2"],
+      observationCount: 2,
+      recentSourceAssetIds: ["asset-older"],
+      durationBands: { UNDER_15S: 2 },
+    },
+  });
+  const prompt = JSON.stringify(request);
+  assert.match(prompt, /asset-older/);
+  assert.match(prompt, /not evidence of performance or causality/);
+  assert.doesNotMatch(prompt, /providerMetrics/);
 });

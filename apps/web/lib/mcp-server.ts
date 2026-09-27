@@ -11,7 +11,8 @@ const listInput = z.object({ clientId, page, limit });
 const clientInput = z.object({ clientId });
 
 function canRead(role: MembershipRole, section: string) {
-  if (role === "ANALYST") return section === "analytics";
+  if (role === "ANALYST")
+    return section === "analytics" || section === "feedback";
   if (role === "REVIEWER") {
     return ["brand", "projects", "versions", "approvals"].includes(section);
   }
@@ -23,6 +24,7 @@ function canRead(role: MembershipRole, section: string) {
       "projects",
       "versions",
       "approvals",
+      "feedback",
     ].includes(section);
   }
   if (section === "audit" || section === "accounts") {
@@ -430,6 +432,37 @@ export function createForgeMcpServer(context: AgentContext) {
               metrics: true,
             },
             orderBy: [{ capturedAt: "desc" }, { id: "desc" }],
+            skip: (page - 1) * limit,
+            take: limit,
+          });
+        }),
+    );
+  }
+
+  if (canRead(context.role, "feedback")) {
+    server.registerTool(
+      "list_feedback_observations",
+      {
+        description:
+          "List versioned creative features linked to reel versions and optional analytics snapshots. Unknown labels are explicit; this tool does not rank performance.",
+        annotations: readOnly,
+        inputSchema: listInput,
+      },
+      async ({ clientId, page, limit }) =>
+        safeRead(async () => {
+          await requireClient(context, clientId);
+          return prisma.reelFeedbackObservation.findMany({
+            where: { clientId },
+            select: {
+              id: true,
+              reelVersionId: true,
+              publishingJobId: true,
+              analyticsSnapshotId: true,
+              schemaVersion: true,
+              features: true,
+              observedAt: true,
+            },
+            orderBy: [{ observedAt: "desc" }, { id: "desc" }],
             skip: (page - 1) * limit,
             take: limit,
           });

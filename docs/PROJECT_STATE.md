@@ -51,6 +51,9 @@ migration and existing-data review.
   synthetic workload tool; live capacity baselines remain pending.
 - Phase 15 draft-only MCP project creation with client-scoped write credentials,
   transaction-bound idempotency and audit attribution.
+- Phase 14 deterministic, versioned creative observations linked to source
+  assets, publishing jobs and analytics snapshots; bounded client-specific
+  creative history now informs planning with observation IDs in AI provenance.
 
 ## Implemented, awaiting live acceptance
 
@@ -68,8 +71,11 @@ migration and existing-data review.
 - Source-revision-aware invalidation for cached media intelligence.
 - Provider retry/backoff policy and transactional AI bookkeeping hardening.
 - Subjective AI-assisted creative scoring.
-- Phase 15 mutation MCP tools and OAuth authorization for hosted ChatGPT
-  clients; the current bearer-token interface is read only.
+- Phase 14 outcome aggregation awaits verified Instagram Login insights metrics,
+  real snapshots and compatible collection windows.
+- Phase 15 MCP mutations beyond draft creation and OAuth authorization for
+  hosted ChatGPT clients; current bearer-token access supports scoped reads
+  and draft-only creation.
 
 ## Current operator setup
 

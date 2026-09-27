@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from "@forge/database";
 
 export const REEL_BLUEPRINT_VERSION = "reel-blueprint-v1" as const;
-export const REEL_PLANNING_PROMPT_VERSION = "reel-planning-prompt-v2" as const;
+export const REEL_PLANNING_PROMPT_VERSION = "reel-planning-prompt-v3" as const;
 
 export type ReelSectionRole =
   "HOOK" | "BODY" | "PROOF" | "CTA" | "BROLL" | "OTHER";
@@ -59,6 +59,13 @@ export interface ReelPlanningContext {
     complianceRules: Prisma.JsonValue | null;
   } | null;
   candidates: ReelSourceCandidate[];
+  feedback?: {
+    schemaVersion: "reel-feedback-v1";
+    observationIds: string[];
+    observationCount: number;
+    recentSourceAssetIds: string[];
+    durationBands: Record<string, number>;
+  };
 }
 
 export interface ReelPlanningProviderResult {
@@ -93,6 +100,10 @@ type PlanningDatabase = Pick<PrismaClient, "$transaction"> & {
   mediaAsset: Pick<PrismaClient["mediaAsset"], "findMany">;
   aiProvenance: Pick<PrismaClient["aiProvenance"], "create">;
   usageLedger: Pick<PrismaClient["usageLedger"], "create">;
+  reelFeedbackObservation?: Pick<
+    PrismaClient["reelFeedbackObservation"],
+    "findMany"
+  >;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -386,6 +397,35 @@ export async function buildReelPlanningContext(input: {
     );
   }
 
+  const feedbackRows = input.database.reelFeedbackObservation
+    ? await input.database.reelFeedbackObservation.findMany({
+        where: {
+          clientId: project.clientId,
+          schemaVersion: "reel-feedback-v1",
+          analyticsSnapshotId: null,
+        },
+        select: { id: true, features: true },
+        orderBy: { observedAt: "desc" },
+        take: 20,
+      })
+    : [];
+  const recentSourceAssetIds = new Set<string>();
+  const durationBands: Record<string, number> = {};
+  for (const row of feedbackRows) {
+    if (!isRecord(row.features)) continue;
+    if (Array.isArray(row.features.sourceAssetIds)) {
+      for (const id of row.features.sourceAssetIds) {
+        if (typeof id === "string" && recentSourceAssetIds.size < 30) {
+          recentSourceAssetIds.add(id);
+        }
+      }
+    }
+    if (typeof row.features.durationBand === "string") {
+      durationBands[row.features.durationBand] =
+        (durationBands[row.features.durationBand] ?? 0) + 1;
+    }
+  }
+
   return {
     reelProjectId: project.id,
     clientId: project.clientId,
@@ -393,6 +433,13 @@ export async function buildReelPlanningContext(input: {
     objective: project.objective?.trim() || project.title,
     brand: project.client.brandProfile,
     candidates,
+    feedback: {
+      schemaVersion: "reel-feedback-v1",
+      observationIds: feedbackRows.map((row) => row.id),
+      observationCount: feedbackRows.length,
+      recentSourceAssetIds: [...recentSourceAssetIds],
+      durationBands,
+    },
   };
 }
 
@@ -479,6 +526,8 @@ export async function planReelProject(input: {
           inputReference: {
             candidateCount: context.candidates.length,
             selectedSourceCount: blueprint.clips.length,
+            feedbackObservationCount: context.feedback?.observationCount ?? 0,
+            feedbackObservationIds: context.feedback?.observationIds ?? [],
           },
           structuredOutput: reelBlueprintJson(blueprint),
           ...(result.confidence !== null

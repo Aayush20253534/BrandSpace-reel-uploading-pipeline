@@ -274,6 +274,7 @@ model Client {
   brandProfile      BrandProfile?
   mediaAssets       MediaAsset[]
   reelProjects      ReelProject[]
+  feedbackObservations ReelFeedbackObservation[]
   auditEvents       AuditEvent[]
   aiProvenance      AiProvenance[]
   usageLedger       UsageLedger[]
@@ -414,6 +415,7 @@ model ReelVersion {
   qaReviews          QaReview[]
   publishingJobs     PublishingJob[]
   approvals           Approval[]
+  feedbackObservations ReelFeedbackObservation[]
 
   @@unique([reelProjectId, version])
   @@index([reelProjectId, createdAt])
@@ -557,6 +559,7 @@ model PublishingJob {
   reelVersion         ReelVersion     @relation(fields: [reelVersionId], references: [id], onDelete: Restrict)
   socialAccount       SocialAccount   @relation(fields: [socialAccountId], references: [id], onDelete: Restrict)
   analyticsSnapshots  ReelAnalyticsSnapshot[]
+  feedbackObservations ReelFeedbackObservation[]
   mediaDelivery       PublicationMediaDelivery?
 
   @@index([state, scheduledAt, createdAt])
@@ -595,9 +598,32 @@ model ReelAnalyticsSnapshot {
   capturedAt      DateTime
   metrics         Json
   publishingJob   PublishingJob @relation(fields: [publishingJobId], references: [id], onDelete: Cascade)
+  feedbackObservations ReelFeedbackObservation[]
 
   @@unique([publishingJobId, capturedAt])
   @@index([capturedAt])
+}
+
+model ReelFeedbackObservation {
+  id                  String                 @id @default(cuid())
+  clientId            String
+  reelVersionId       String
+  publishingJobId     String?
+  analyticsSnapshotId String?
+  sourceKey           String                 @unique
+  schemaVersion       String
+  features            Json
+  providerMetrics     Json?
+  observedAt          DateTime
+  createdAt           DateTime               @default(now())
+  client              Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reelVersion         ReelVersion            @relation(fields: [reelVersionId], references: [id], onDelete: Cascade)
+  publishingJob       PublishingJob?         @relation(fields: [publishingJobId], references: [id], onDelete: Cascade)
+  analyticsSnapshot   ReelAnalyticsSnapshot? @relation(fields: [analyticsSnapshotId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, observedAt])
+  @@index([reelVersionId, observedAt])
+  @@index([analyticsSnapshotId])
 }
 
 model AuditEvent {

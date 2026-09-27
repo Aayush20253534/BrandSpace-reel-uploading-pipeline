@@ -53,10 +53,11 @@ async function toolNames(
   }
 }
 
-test("MCP tool discovery keeps analysts within analytics and client selection", async () => {
+test("MCP tool discovery keeps analysts within analytics, feedback, and client selection", async () => {
   assert.deepEqual(await toolNames("ANALYST"), [
     "list_clients",
     "list_analytics_snapshots",
+    "list_feedback_observations",
   ]);
 });
 
