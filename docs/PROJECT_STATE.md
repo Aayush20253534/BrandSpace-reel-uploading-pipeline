@@ -71,6 +71,8 @@ migration and existing-data review.
 - Phase 17 dispatch preflight now requires exact-version human approval for every
   client mode, counts claims durably, quarantines exhausted jobs and stores only
   stable queue failure codes.
+- Full Drive scans preserve analysis state and technical metadata for unchanged
+  files; detected source revisions reset asset readiness and probe dimensions.
 
 ## Implemented, awaiting live acceptance
 
@@ -83,7 +85,8 @@ migration and existing-data review.
   contract review, test account, provider edge cases and crash/replay exercises.
 - Phase 12 staging visual and role acceptance.
 - Incremental Google Drive change-feed ingestion.
-- Source-revision-aware invalidation for cached media intelligence.
+- Source-revision-aware lineage and invalidation for all cached media
+  intelligence stages; revised assets must be reprocessed before planning.
 - Provider retry/backoff policy and transactional AI bookkeeping hardening.
 - Subjective AI-assisted creative scoring.
 - Phase 13 live insights acceptance and Phase 14 outcome aggregation await verified Instagram Login insights metrics,

@@ -12,8 +12,13 @@ This phase turns verified Google Drive access into persistent media discovery.
 - Drive revision, parent, size, checksum, and timestamps are preserved where available.
 - The Drive start-page token is persisted only after all asset upserts succeed.
 - Re-running a scan is idempotent: existing Drive files are updated, not duplicated.
+- An unchanged file retains its analysis state and technical metadata. A changed
+  revision, checksum or size resets readiness and probe dimensions, so it is
+  excluded from new planning until reprocessed.
 
 Incremental change-feed consumption remains deferred until queued execution is introduced.
+Full stage-level cache invalidation for revised files also remains pending;
+operators should reprocess changed assets before using their analysis again.
 
 ## Live smoke test
 

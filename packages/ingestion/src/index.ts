@@ -1,7 +1,6 @@
 import type {
   MediaAssetKind,
   MediaAssetState,
-  Prisma,
   PrismaClient,
 } from "@forge/database";
 import {
@@ -60,7 +59,7 @@ const classifyMedia = (
   return { kind: rule.kind, state: "READY" };
 };
 
-const toMetadata = (item: MediaObject): Prisma.InputJsonValue => ({
+const toMetadata = (item: MediaObject): Record<string, string> => ({
   source: "google-drive",
   ...(item.createdAt ? { driveCreatedAt: item.createdAt.toISOString() } : {}),
   ...(item.modifiedAt
@@ -117,8 +116,27 @@ export async function ingestClientDriveFolder(input: {
 
     const existing = await input.database.mediaAsset.findUnique({
       where: { clientId_driveFileId: key },
-      select: { id: true },
+      select: {
+        id: true,
+        state: true,
+        driveRevisionId: true,
+        checksum: true,
+        sizeBytes: true,
+        metadata: true,
+      },
     });
+    const sourceChanged = Boolean(
+      existing &&
+      ((existing.driveRevisionId &&
+        item.revisionId &&
+        existing.driveRevisionId !== item.revisionId) ||
+        (existing.checksum &&
+          item.checksum &&
+          existing.checksum !== item.checksum) ||
+        (existing.sizeBytes !== null &&
+          item.sizeBytes !== undefined &&
+          existing.sizeBytes !== BigInt(item.sizeBytes))),
+    );
 
     await input.database.mediaAsset.upsert({
       where: { clientId_driveFileId: key },
@@ -139,14 +157,27 @@ export async function ingestClientDriveFolder(input: {
       },
       update: {
         kind: classification.kind,
-        state: classification.state,
+        ...(sourceChanged
+          ? { state: "READY" as const }
+          : existing
+            ? { state: existing.state }
+            : {}),
         driveRevisionId: item.revisionId ?? null,
         parentDriveId: item.parentIds?.[0] ?? null,
         name: item.name,
         mimeType: item.mimeType,
         sizeBytes: item.sizeBytes !== undefined ? BigInt(item.sizeBytes) : null,
         checksum: item.checksum ?? null,
-        metadata: toMetadata(item),
+        ...(sourceChanged
+          ? { durationMs: null, width: null, height: null }
+          : {}),
+        metadata:
+          !sourceChanged &&
+          existing?.metadata &&
+          typeof existing.metadata === "object" &&
+          !Array.isArray(existing.metadata)
+            ? { ...existing.metadata, ...toMetadata(item) }
+            : toMetadata(item),
       },
     });
 

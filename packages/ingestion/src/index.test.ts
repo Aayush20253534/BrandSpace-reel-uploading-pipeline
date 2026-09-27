@@ -93,3 +93,60 @@ test("full scan is idempotent and skips non-media", async () => {
   assert.equal(second.updated, 1);
   assert.equal(assets.size, 1);
 });
+
+test("full scan preserves analyzed state for unchanged media and resets changed source metadata", async () => {
+  const asset = {
+    id: "asset-1",
+    clientId: "client-1",
+    driveFileId: video.id,
+    driveRevisionId: "7",
+    checksum: "abc",
+    sizeBytes: 42n,
+    state: "ANALYZED",
+    durationMs: 4_000,
+    width: 1080,
+    height: 1920,
+    metadata: { technical: { analyzer: "ffprobe" } },
+  };
+  let current: any = asset;
+  let source: MediaObject = video;
+  const database = {
+    client: {
+      findUnique: async () => ({ id: "client-1", driveFolderId: folder.id }),
+    },
+    mediaAsset: {
+      findUnique: async () => current,
+      upsert: async ({ update }: any) => {
+        current = { ...current, ...update };
+        return current;
+      },
+    },
+    driveSyncState: { upsert: async () => ({}) },
+  };
+  const storage = {
+    getMetadata: async () => folder,
+    listChildren: async () => [source],
+    getStartPageToken: async () => "token-1",
+  };
+
+  await ingestClientDriveFolder({
+    clientId: "client-1",
+    database: database as any,
+    storage: storage as any,
+  });
+  assert.equal(current.state, "ANALYZED");
+  assert.equal(current.durationMs, 4_000);
+  assert.equal(current.metadata.technical.analyzer, "ffprobe");
+
+  source = { ...video, revisionId: "8", checksum: "def" };
+  await ingestClientDriveFolder({
+    clientId: "client-1",
+    database: database as any,
+    storage: storage as any,
+  });
+  assert.equal(current.state, "READY");
+  assert.equal(current.durationMs, null);
+  assert.equal(current.width, null);
+  assert.equal(current.height, null);
+  assert.equal(current.metadata.technical, undefined);
+});
