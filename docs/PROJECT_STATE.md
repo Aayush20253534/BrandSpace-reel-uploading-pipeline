@@ -2,15 +2,12 @@
 
 ## Current phase
 
-Phase 11 — Instagram Distribution
+Cross-phase staging acceptance for Phases 11–18.
 
-Status: Phases 1–10 and 11.1–11.4 are implemented locally. Phase 11.4 live
-acceptance awaits a private S3-compatible bucket and scoped credentials. The new
-migration has been validated but has not been applied to a live database.
-Phase 12's authenticated operator dashboard, scoped read views and guarded queue
-reconciliation are implemented locally; staging role and data acceptance remain.
-Phase 17 version-bound approval hardening is implemented locally and awaits
-migration and existing-data review.
+Status: Phases 1–10 and the code paths listed below are implemented and tested
+locally. Instagram publishing, temporary bucket delivery, dashboard roles and
+insights have not been accepted against live staging accounts and infrastructure.
+All production migrations and live provider switches remain unapplied here.
 
 ## Completed
 
@@ -126,5 +123,7 @@ migration and existing-data review.
 
 ## Next phase
 
-Phase 11.5 — Instagram Reel container creation after the Instagram Login-specific
-Meta contract is verified. Continue independent Phase 12–18 work meanwhile.
+Complete the remaining official Meta Reel metric and rate-limit evidence, apply
+migrations in staging, run the controlled bucket/account acceptance steps, and
+measure dashboard, worker and MCP behavior against representative staging data.
+Keep both live Instagram switches disabled until their separate gates pass.
