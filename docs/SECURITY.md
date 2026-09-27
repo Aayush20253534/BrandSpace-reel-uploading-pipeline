@@ -10,3 +10,10 @@
 8. Every client-scoped operation will require server-side authorization.
 9. AI providers never receive Google/Meta credentials.
 10. Publishing will use explicit idempotency and durable database state.
+
+## Deployment probes
+
+`GET /api/health` checks that the web process responds. `GET /api/ready` runs a
+minimal PostgreSQL query and returns HTTP 503 while the database is unavailable.
+Use `/api/ready` for deployment readiness and `/api/health` for liveness. Both
+responses are uncached and contain no credentials or database error text.
