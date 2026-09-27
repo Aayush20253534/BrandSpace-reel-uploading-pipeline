@@ -15,7 +15,6 @@ const base: PublishingPreflight = {
     state: "SCHEDULED",
     activeVersion: 2,
     clientId: "client-1",
-    approvalMode: "REQUIRED",
   },
   version: {
     id: "version-2",
@@ -46,17 +45,6 @@ test("publishing requires approval for the exact active version", () => {
       now,
     ),
     "ACTIVE_VERSION_CHANGED",
-  );
-  assert.equal(
-    publishingPreflightError(
-      {
-        ...base,
-        project: { ...base.project, approvalMode: "AUTO" },
-        hasVersionApproval: false,
-      },
-      now,
-    ),
-    null,
   );
 });
 

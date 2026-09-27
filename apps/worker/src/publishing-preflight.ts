@@ -8,7 +8,6 @@ export interface PublishingPreflight {
     state: string;
     activeVersion: number;
     clientId: string;
-    approvalMode: string;
   };
   version: {
     id: string;
@@ -57,7 +56,7 @@ export function publishingPreflightError(
   ) {
     return "SOCIAL_ACCOUNT_NOT_READY";
   }
-  if (input.project.approvalMode !== "AUTO" && !input.hasVersionApproval) {
+  if (!input.hasVersionApproval) {
     return "VERSION_APPROVAL_MISSING";
   }
   return null;

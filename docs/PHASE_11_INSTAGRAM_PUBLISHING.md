@@ -16,7 +16,8 @@ the switch or make a live publish.
 
 ## Durable sequence
 
-1. BullMQ dispatch claims a pending job in PostgreSQL and releases its lock.
+1. BullMQ dispatch requires the exact-version human approval, claims a pending
+   job in PostgreSQL within the durable attempt budget, and releases its lock.
 2. The lifecycle claims one `DISPATCHED` or `PROCESSING` row by lock and due time.
 3. It checks client, account, active version, rendered artifact and exact-version
    human approval again. It prepares temporary media from Google Drive.

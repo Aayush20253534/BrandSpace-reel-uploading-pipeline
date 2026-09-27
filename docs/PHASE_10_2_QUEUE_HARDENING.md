@@ -21,13 +21,15 @@ BullMQ dispatch jobs still receive five attempts with exponential backoff.
 When a queue attempt fails:
 
 - non-final failures move the PostgreSQL job to `RETRY_WAIT`;
-- the attempt count and error are persisted;
+- each successful claim increments the durable dispatch attempt count; failures
+  persist a stable error code and generic message without provider error text;
 - the next BullMQ attempt may atomically claim either `SCHEDULED` or `RETRY_WAIT`;
 - exhausting the queue attempt budget moves the publishing job to
   `NEEDS_ATTENTION`.
 
-A successful dispatch clears the queue error fields and records the successful attempt
-number.
+A successful dispatch clears the queue error fields. Reconciliation moves
+pending jobs that reached the durable five-claim budget to `NEEDS_ATTENTION`
+and excludes them from automatic enqueue.
 
 ## Failed Redis job repair
 

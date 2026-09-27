@@ -68,6 +68,9 @@ migration and existing-data review.
 - Phase 17 database readiness endpoint and CI gate for agent scripts.
 - Phase 15 client-scoped MCP scheduling intent with exact-version human approval,
   QA/artifact/account guards, transaction-bound idempotency and audit.
+- Phase 17 dispatch preflight now requires exact-version human approval for every
+  client mode, counts claims durably, quarantines exhausted jobs and stores only
+  stable queue failure codes.
 
 ## Implemented, awaiting live acceptance
 

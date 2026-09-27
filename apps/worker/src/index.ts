@@ -110,11 +110,33 @@ async function markQueueStateMismatch(
 async function reconcilePublishingQueue() {
   if (!publishingQueueClient) return;
 
+  const exhausted = await prisma.publishingJob.updateMany({
+    where: {
+      state: { in: ["SCHEDULED", "RETRY_WAIT"] },
+      attemptCount: { gte: PUBLISHING_MAX_ATTEMPTS },
+      externalContainerId: null,
+      externalMediaId: null,
+      containerCreateIntentAt: null,
+      publishIntentAt: null,
+    },
+    data: {
+      state: "NEEDS_ATTENTION",
+      lockedAt: null,
+      lastErrorCode: "QUEUE_DISPATCH_EXHAUSTED",
+      lastErrorMessage: "Dispatch attempt budget exhausted",
+    },
+  });
+  if (exhausted.count > 0)
+    logger.warn("publishing_dispatch_budget_exhausted", {
+      count: exhausted.count,
+    });
+
   const jobs = await prisma.publishingJob.findMany({
     where: {
       state: {
         in: ["SCHEDULED", "RETRY_WAIT"],
       },
+      attemptCount: { lt: PUBLISHING_MAX_ATTEMPTS },
       externalContainerId: null,
       externalMediaId: null,
       containerCreateIntentAt: null,
@@ -197,12 +219,11 @@ async function recordDispatchFailure(
     },
     data: {
       state: finalAttempt ? "NEEDS_ATTENTION" : "RETRY_WAIT",
-      attemptCount: attemptsMade,
       lockedAt: null,
       lastErrorCode: finalAttempt
         ? "QUEUE_DISPATCH_EXHAUSTED"
         : "QUEUE_DISPATCH_RETRY",
-      lastErrorMessage: error.message.slice(0, 2_000),
+      lastErrorMessage: "Queue dispatch failed; inspect the stable error code",
     },
   });
 
@@ -213,7 +234,7 @@ async function recordDispatchFailure(
     maxAttempts,
     finalAttempt,
     dbUpdated: updated.count > 0,
-    error: error.message,
+    errorType: error.name,
   });
 }
 
@@ -227,6 +248,7 @@ if (env.REDIS_URL) {
         where: { id: job.publishingJobId },
         select: {
           state: true,
+          attemptCount: true,
           idempotencyKey: true,
           externalContainerId: true,
           externalMediaId: true,
@@ -238,9 +260,7 @@ if (env.REDIS_URL) {
               state: true,
               activeVersion: true,
               clientId: true,
-              client: {
-                select: { organizationId: true, approvalMode: true },
-              },
+              client: { select: { organizationId: true } },
             },
           },
           reelVersion: {
@@ -274,47 +294,45 @@ if (env.REDIS_URL) {
         });
         return;
       }
-      const approval =
-        pending.reelProject.client.approvalMode === "AUTO"
-          ? null
-          : await prisma.approval.findFirst({
-              where: {
-                reelProjectId: pending.reelProject.id,
-                reelVersionId: pending.reelVersion.id,
-                decision: "APPROVED",
-              },
-              select: { id: true },
-            });
+      const approval = await prisma.approval.findFirst({
+        where: {
+          reelProjectId: pending.reelProject.id,
+          reelVersionId: pending.reelVersion.id,
+          decision: "APPROVED",
+        },
+        select: { id: true },
+      });
       const guardError =
-        pending.externalContainerId ||
-        pending.externalMediaId ||
-        pending.containerCreateIntentAt ||
-        pending.publishIntentAt
-          ? "REMOTE_WRITE_INTENT_PRESENT"
-          : publishingPreflightError({
-              jobState: pending.state,
-              jobProjectId: job.reelProjectId,
-              jobVersionId: job.reelVersionId,
-              jobAccountId: job.socialAccountId,
-              project: {
-                id: pending.reelProject.id,
-                state: pending.reelProject.state,
-                activeVersion: pending.reelProject.activeVersion,
-                clientId: pending.reelProject.clientId,
-                approvalMode: pending.reelProject.client.approvalMode,
-              },
-              version: pending.reelVersion,
-              account: {
-                id: pending.socialAccount.id,
-                clientId: pending.socialAccount.clientId,
-                status: pending.socialAccount.status,
-                hasCredential: Boolean(
-                  pending.socialAccount.accessTokenCiphertext,
-                ),
-                tokenExpiresAt: pending.socialAccount.tokenExpiresAt,
-              },
-              hasVersionApproval: Boolean(approval),
-            });
+        pending.attemptCount >= PUBLISHING_MAX_ATTEMPTS
+          ? "QUEUE_DISPATCH_EXHAUSTED"
+          : pending.externalContainerId ||
+              pending.externalMediaId ||
+              pending.containerCreateIntentAt ||
+              pending.publishIntentAt
+            ? "REMOTE_WRITE_INTENT_PRESENT"
+            : publishingPreflightError({
+                jobState: pending.state,
+                jobProjectId: job.reelProjectId,
+                jobVersionId: job.reelVersionId,
+                jobAccountId: job.socialAccountId,
+                project: {
+                  id: pending.reelProject.id,
+                  state: pending.reelProject.state,
+                  activeVersion: pending.reelProject.activeVersion,
+                  clientId: pending.reelProject.clientId,
+                },
+                version: pending.reelVersion,
+                account: {
+                  id: pending.socialAccount.id,
+                  clientId: pending.socialAccount.clientId,
+                  status: pending.socialAccount.status,
+                  hasCredential: Boolean(
+                    pending.socialAccount.accessTokenCiphertext,
+                  ),
+                  tokenExpiresAt: pending.socialAccount.tokenExpiresAt,
+                },
+                hasVersionApproval: Boolean(approval),
+              });
       if (guardError) {
         const blocked = await prisma.$transaction(async (tx) => {
           const updated = await tx.publishingJob.updateMany({
@@ -360,6 +378,7 @@ if (env.REDIS_URL) {
           state: {
             in: ["SCHEDULED", "RETRY_WAIT"],
           },
+          attemptCount: { lt: PUBLISHING_MAX_ATTEMPTS },
           externalContainerId: null,
           externalMediaId: null,
           containerCreateIntentAt: null,
@@ -368,17 +387,12 @@ if (env.REDIS_URL) {
             state: "SCHEDULED",
             activeVersion: pending.reelVersion.version,
             clientId: pending.socialAccount.clientId,
-            OR: [
-              { client: { approvalMode: "AUTO" } },
-              {
-                approvals: {
-                  some: {
-                    reelVersionId: job.reelVersionId,
-                    decision: "APPROVED",
-                  },
-                },
+            approvals: {
+              some: {
+                reelVersionId: job.reelVersionId,
+                decision: "APPROVED",
               },
-            ],
+            },
           },
           reelVersion: {
             reelProjectId: job.reelProjectId,
@@ -392,7 +406,7 @@ if (env.REDIS_URL) {
         data: {
           state: "DISPATCHED",
           lockedAt: new Date(),
-          attemptCount: context.attemptNumber,
+          attemptCount: { increment: 1 },
           lastErrorCode: null,
           lastErrorMessage: null,
         },
@@ -456,7 +470,7 @@ if (env.REDIS_URL) {
     void recordDispatchFailure(job, error).catch((failure) => {
       logger.error("publishing_failure_bookkeeping_failed", {
         publishingJobId: job?.data.publishingJobId,
-        error: failure instanceof Error ? failure.message : String(failure),
+        errorType: failure instanceof Error ? failure.name : "UnknownError",
       });
     });
   });
@@ -466,19 +480,19 @@ if (env.REDIS_URL) {
   });
 
   publishingWorker.on("error", (error) => {
-    logger.error("publishing_worker_error", { error: error.message });
+    logger.error("publishing_worker_error", { errorType: error.name });
   });
 
   void reconcilePublishingQueue().catch((error) => {
     logger.error("publishing_queue_reconcile_failed", {
-      error: error instanceof Error ? error.message : String(error),
+      errorType: error instanceof Error ? error.name : "UnknownError",
     });
   });
 
   reconcileTimer = setInterval(() => {
     void reconcilePublishingQueue().catch((error) => {
       logger.error("publishing_queue_reconcile_failed", {
-        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : "UnknownError",
       });
     });
   }, RECONCILE_INTERVAL_MS);
@@ -507,7 +521,7 @@ const shutdown = async (signal: string) => {
     process.exit(0);
   } catch (error) {
     logger.error("worker_shutdown_failed", {
-      error: error instanceof Error ? error.message : String(error),
+      errorType: error instanceof Error ? error.name : "UnknownError",
     });
     process.exit(1);
   }
