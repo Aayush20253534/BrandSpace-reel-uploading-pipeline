@@ -81,6 +81,11 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  INSTAGRAM_INSIGHTS_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  INSTAGRAM_REEL_INSIGHTS_METRICS: optionalString,
 
   PUBLICATION_S3_ENDPOINT: optionalUrl,
   PUBLICATION_S3_REGION: optionalString,

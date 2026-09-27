@@ -13,6 +13,7 @@
     "scripts/mcp-load.ts",
     "scripts/mcp-load.test.ts",
     "scripts/feedback-sync.ts",
-    "scripts/instagram-publish-reconcile.ts"
+    "scripts/instagram-publish-reconcile.ts",
+    "scripts/instagram-insights-reconcile.ts"
   ]
 }

@@ -107,6 +107,13 @@ enum PublishingState {
   CANCELLED
 }
 
+enum AnalyticsCollectionState {
+  PENDING
+  RETRY_WAIT
+  COMPLETE
+  NEEDS_ATTENTION
+}
+
 enum SocialPlatform {
   INSTAGRAM
 }
@@ -564,6 +571,7 @@ model PublishingJob {
   reelVersion         ReelVersion     @relation(fields: [reelVersionId], references: [id], onDelete: Restrict)
   socialAccount       SocialAccount   @relation(fields: [socialAccountId], references: [id], onDelete: Restrict)
   analyticsSnapshots  ReelAnalyticsSnapshot[]
+  analyticsCollection AnalyticsCollection?
   feedbackObservations ReelFeedbackObservation[]
   mediaDelivery       PublicationMediaDelivery?
 
@@ -608,6 +616,23 @@ model ReelAnalyticsSnapshot {
 
   @@unique([publishingJobId, capturedAt])
   @@index([capturedAt])
+}
+
+model AnalyticsCollection {
+  id               String                   @id @default(cuid())
+  publishingJobId  String                   @unique
+  state            AnalyticsCollectionState @default(PENDING)
+  nextCaptureAt    DateTime
+  captureStartedAt DateTime?
+  attemptCount     Int                      @default(0)
+  capturedCount    Int                      @default(0)
+  lastErrorCode    String?
+  lockedAt         DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  publishingJob    PublishingJob            @relation(fields: [publishingJobId], references: [id], onDelete: Cascade)
+
+  @@index([state, nextCaptureAt, lockedAt])
 }
 
 model ReelFeedbackObservation {

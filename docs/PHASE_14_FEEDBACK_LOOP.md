@@ -18,8 +18,8 @@ as `UNLABELED` and `UNRECORDED`. Current project fields are explicitly marked
 as values at sync time. It never turns missing source fields into guesses.
 
 Provider metrics are copied unchanged from an analytics snapshot and kept apart
-from derived features. Forge currently has no active Instagram insights
-collector or verified metric dictionary. Therefore no engagement score, hook
+from derived features. The Instagram insights collector is disabled until a
+verified metric allowlist is configured. Therefore no engagement score, hook
 performance rank, causal claim, or optimization on views is produced. The
 read-only `list_feedback_observations` MCP tool returns features and linkage;
 `list_analytics_snapshots` separately exposes provider-returned metrics.

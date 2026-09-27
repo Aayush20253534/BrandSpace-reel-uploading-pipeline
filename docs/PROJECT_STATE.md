@@ -59,6 +59,9 @@ migration and existing-data review.
   by default until official contract and staging acceptance.
 - Phase 15 MCP request-only approval mutation, scoped to one client and the
   QA-passed active version with transaction-bound idempotency and audit.
+- Phase 13 read-only Instagram insights collection, bounded capture schedule,
+  immutable provider-response snapshots and dashboard display. Disabled until
+  the exact Instagram Login metric allowlist is verified and configured.
 
 ## Implemented, awaiting live acceptance
 
@@ -74,7 +77,7 @@ migration and existing-data review.
 - Source-revision-aware invalidation for cached media intelligence.
 - Provider retry/backoff policy and transactional AI bookkeeping hardening.
 - Subjective AI-assisted creative scoring.
-- Phase 14 outcome aggregation awaits verified Instagram Login insights metrics,
+- Phase 13 live insights acceptance and Phase 14 outcome aggregation await verified Instagram Login insights metrics,
   real snapshots and compatible collection windows.
 - Phase 15 MCP mutations beyond draft creation and approval requests, and OAuth authorization for
   hosted ChatGPT clients; current bearer-token access supports scoped reads

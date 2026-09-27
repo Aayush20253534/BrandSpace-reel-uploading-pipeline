@@ -10,6 +10,7 @@ import {
 } from "@forge/queue";
 import { APP_NAME, PHASE } from "@forge/shared";
 import { startInstagramTokenLifecycle } from "./instagram-token-lifecycle.js";
+import { startInstagramInsightsCollector } from "./instagram-insights.js";
 import { startInstagramPublishingLifecycle } from "./instagram-publishing-lifecycle.js";
 import {
   cleanupPublicationMedia,
@@ -31,6 +32,7 @@ logger.info("worker_started", {
 });
 
 const instagramTokenLifecycle = startInstagramTokenLifecycle();
+const instagramInsightsCollector = startInstagramInsightsCollector();
 
 const publicationDeliveryConfigured = Boolean(
   env.PUBLICATION_S3_ENDPOINT &&
@@ -475,6 +477,7 @@ const shutdown = async (signal: string) => {
     if (reconcileTimer) clearInterval(reconcileTimer);
     if (mediaCleanupTimer) clearInterval(mediaCleanupTimer);
     instagramTokenLifecycle.stop();
+    await instagramInsightsCollector.stop();
     await publishingLifecycle?.stop();
     await publishingWorker?.close();
     await publishingQueueClient?.close();

@@ -234,3 +234,27 @@ If an ambiguous remote publish occurs, use
 `npm run instagram:publish:reconcile -- status <job-id>` and verify the remote
 account in Meta before running `confirm-media` with the exact remote media ID.
 The command verifies the media again and never posts it a second time.
+
+### Verify and enable Instagram Login insights metrics
+
+Why: Metric names and permissions can change, and the collector deliberately
+has no guessed default. `INSTAGRAM_INSIGHTS_ENABLED` is `false` by default.
+
+Exact location: Meta for Developers → Instagram Platform → Instagram API with
+Instagram Login → Insights / Media Insights for Reels. Confirm the current
+permission, endpoint, metric names, period and response shape for the app's
+pinned `META_GRAPH_VERSION`. Do not use a Facebook Page-token example.
+
+Exact field: Worker environment `INSTAGRAM_REEL_INSIGHTS_METRICS` and
+`INSTAGRAM_INSIGHTS_ENABLED`. Enter 1–12 comma-separated supported metric names
+after applying `20260927020000_analytics_collection` in staging; then set the
+enable flag to `true` for a test account. Keep the flag off in production until
+staging captures and the dashboard values are reviewed.
+
+How to verify: A published test Reel creates two distinct, timestamped
+`ReelAnalyticsSnapshot` rows, each with its requested names and raw provider
+response; retrying an attempt does not overwrite a row. The dashboard labels
+the numbers as provider metrics. No live insights collection has run here.
+
+What phase it blocks: Live acceptance of Phase 13 and outcome aggregation in
+Phase 14.

@@ -5,6 +5,10 @@ import { isSafeToReconcilePublishingJob } from "@forge/queue";
 import { reconcilePublishingJob } from "../app/dashboard/actions";
 import { ApprovalDecisionForm } from "./approval-decision-form";
 import {
+  providerCollectedAt,
+  providerMetricValues,
+} from "../lib/analytics-metrics";
+import {
   operatorHref,
   type OperatorContext,
   type OperatorSection,
@@ -232,16 +236,6 @@ function Pager({
 
 function takePage<T>(items: T[]) {
   return { items: items.slice(0, 25), hasNext: items.length > 25 };
-}
-
-function metricValues(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-  return Object.entries(value as Record<string, unknown>)
-    .filter(
-      (entry): entry is [string, number] =>
-        typeof entry[1] === "number" && Number.isFinite(entry[1]),
-    )
-    .slice(0, 5);
 }
 
 export async function OperatorView({
@@ -948,14 +942,17 @@ export async function OperatorView({
                 {item.publishingJob.reelProject.title}
               </span>,
               <span key="metrics" className="text-[12px]">
-                {metricValues(item.metrics)
+                {providerMetricValues(item.metrics)
                   .map(
                     ([name, value]) =>
                       `${name}: ${value.toLocaleString("en-IN")}`,
                   )
                   .join(" · ") || "No numeric metrics"}
               </span>,
-              date(item.capturedAt, timezone),
+              date(
+                providerCollectedAt(item.metrics) ?? item.capturedAt,
+                timezone,
+              ),
             ],
           }))}
         />
