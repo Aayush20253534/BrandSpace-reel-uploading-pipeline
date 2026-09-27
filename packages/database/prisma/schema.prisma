@@ -549,6 +549,11 @@ model PublishingJob {
   attemptCount        Int             @default(0)
   externalContainerId String?
   externalMediaId     String?
+  containerCreateIntentAt DateTime?
+  publishIntentAt       DateTime?
+  mediaPrepareAttemptCount Int          @default(0)
+  containerPollCount    Int             @default(0)
+  nextPollAt            DateTime?
   lastErrorCode       String?
   lastErrorMessage    String?
   lockedAt            DateTime?
@@ -563,6 +568,7 @@ model PublishingJob {
   mediaDelivery       PublicationMediaDelivery?
 
   @@index([state, scheduledAt, createdAt])
+  @@index([state, nextPollAt, lockedAt])
   @@index([reelProjectId, createdAt])
   @@index([socialAccountId, scheduledAt])
 }

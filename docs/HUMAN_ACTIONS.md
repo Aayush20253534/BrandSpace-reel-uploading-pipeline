@@ -215,3 +215,22 @@ How to verify: The account appears as `CONNECTED` in
 Instagram user ID. A real publish remains separately approval gated.
 
 What phase it blocks: Live acceptance of 11.5–11.7 and 13.
+
+### Keep live publication disabled until staging acceptance
+
+Why: The new durable publishing controller can make a real `media_publish`
+request. `INSTAGRAM_LIVE_PUBLISH_ENABLED` defaults to `false`; no real post has
+been approved or made from this workspace.
+
+Exact location: Worker environment in the deployment secret/config manager.
+After reviewing the current official Instagram Login content-publishing
+contract, applying `20260927010000_publishing_intents` in staging, completing
+the mock and staging scenarios in `PHASE_11_INSTAGRAM_PUBLISHING.md`, and
+approving one exact test reel/version and publish time, set
+`INSTAGRAM_LIVE_PUBLISH_ENABLED=true` for that controlled worker deployment.
+Do not turn it on merely because a client has `approvalMode=AUTO`.
+
+If an ambiguous remote publish occurs, use
+`npm run instagram:publish:reconcile -- status <job-id>` and verify the remote
+account in Meta before running `confirm-media` with the exact remote media ID.
+The command verifies the media again and never posts it a second time.

@@ -77,6 +77,10 @@ const schema = z.object({
     .string()
     .regex(/^v\d+\.\d+$/)
     .default("v26.0"),
+  INSTAGRAM_LIVE_PUBLISH_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 
   PUBLICATION_S3_ENDPOINT: optionalUrl,
   PUBLICATION_S3_REGION: optionalString,

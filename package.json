@@ -44,6 +44,7 @@
     "reel:queue:reconcile": "tsx scripts/reel-queue-reconcile.ts",
     "instagram:account:import": "tsx scripts/instagram-account-import.ts",
     "instagram:account:list": "tsx scripts/instagram-account-list.ts",
+    "instagram:publish:reconcile": "tsx scripts/instagram-publish-reconcile.ts",
     "agent:token": "tsx scripts/agent-token.ts",
     "social:token:rotate": "tsx scripts/social-token-rotate.ts",
     "scale:mcp-load": "tsx scripts/mcp-load.ts",

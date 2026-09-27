@@ -54,6 +54,9 @@ migration and existing-data review.
 - Phase 14 deterministic, versioned creative observations linked to source
   assets, publishing jobs and analytics snapshots; bounded client-specific
   creative history now informs planning with observation IDs in AI provenance.
+- Phase 11.5–11.6 code path for Instagram Login container creation, bounded
+  polling, publish intent quarantine and remote-media verification, disabled
+  by default until official contract and staging acceptance.
 
 ## Implemented, awaiting live acceptance
 
@@ -62,10 +65,8 @@ migration and existing-data review.
 
 ## Intentionally deferred
 
-- Instagram Login container creation/status polling and `media_publish` pending
-  verification of the current Instagram Login-specific Meta API contract. The
-  official Postman Reels examples found to date are for Facebook Login and Page
-  tokens, so they cannot safely supply this contract.
+- Phase 11.5–11.7 live publication acceptance, including exact Instagram Login
+  contract review, test account, provider edge cases and crash/replay exercises.
 - Phase 12 staging visual and role acceptance.
 - Incremental Google Drive change-feed ingestion.
 - Source-revision-aware invalidation for cached media intelligence.

@@ -10,8 +10,10 @@ import {
 } from "@forge/queue";
 import { APP_NAME, PHASE } from "@forge/shared";
 import { startInstagramTokenLifecycle } from "./instagram-token-lifecycle.js";
+import { startInstagramPublishingLifecycle } from "./instagram-publishing-lifecycle.js";
 import {
   cleanupPublicationMedia,
+  createCanonicalStorage,
   createTemporaryDelivery,
 } from "./publication-media.js";
 import { publishingPreflightError } from "./publishing-preflight.js";
@@ -40,6 +42,18 @@ const publicationDeliveryConfigured = Boolean(
 const temporaryDelivery = publicationDeliveryConfigured
   ? createTemporaryDelivery()
   : null;
+if (env.INSTAGRAM_LIVE_PUBLISH_ENABLED && !temporaryDelivery) {
+  throw new Error(
+    "Live Instagram publishing requires temporary media delivery",
+  );
+}
+const publishingLifecycle =
+  env.INSTAGRAM_LIVE_PUBLISH_ENABLED && temporaryDelivery
+    ? startInstagramPublishingLifecycle(
+        createCanonicalStorage(),
+        temporaryDelivery,
+      )
+    : null;
 let mediaCleanupTimer: NodeJS.Timeout | null = null;
 if (temporaryDelivery) {
   const cleanup = () =>
@@ -388,6 +402,14 @@ if (env.REDIS_URL) {
         socialAccountId: job.socialAccountId,
         attemptNumber: context.attemptNumber,
       });
+      await prisma.publishingJob.updateMany({
+        where: {
+          id: job.publishingJobId,
+          idempotencyKey: job.idempotencyKey,
+          state: "DISPATCHED",
+        },
+        data: { lockedAt: null },
+      });
     },
   );
 
@@ -453,6 +475,7 @@ const shutdown = async (signal: string) => {
     if (reconcileTimer) clearInterval(reconcileTimer);
     if (mediaCleanupTimer) clearInterval(mediaCleanupTimer);
     instagramTokenLifecycle.stop();
+    await publishingLifecycle?.stop();
     await publishingWorker?.close();
     await publishingQueueClient?.close();
     await prisma.$disconnect();
