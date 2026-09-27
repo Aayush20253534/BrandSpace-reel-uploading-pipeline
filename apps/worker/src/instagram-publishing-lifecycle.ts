@@ -14,6 +14,39 @@ const logger = createLogger("instagram-publishing");
 const LEASE_MS = 30 * 60_000;
 const POLL_MS = 30_000;
 const MAX_POLLS = 60;
+const START_GRACE_MS = 15 * 60_000;
+
+export function isStaleUnstartedPublication(
+  job: {
+    state: string;
+    scheduledAt: Date;
+    externalContainerId: string | null;
+    containerCreateIntentAt: Date | null;
+  },
+  now = new Date(),
+) {
+  return (
+    job.state === "DISPATCHED" &&
+    !job.externalContainerId &&
+    !job.containerCreateIntentAt &&
+    now.getTime() - job.scheduledAt.getTime() > START_GRACE_MS
+  );
+}
+
+export function isEarlyUnstartedPublication(
+  job: {
+    state: string;
+    scheduledAt: Date;
+    containerCreateIntentAt: Date | null;
+  },
+  now = new Date(),
+) {
+  return (
+    job.state === "DISPATCHED" &&
+    !job.containerCreateIntentAt &&
+    job.scheduledAt.getTime() > now.getTime()
+  );
+}
 
 export function nextPublishingAction(input: {
   externalContainerId: string | null;
@@ -140,6 +173,7 @@ export async function advanceInstagramPublishingJob(
     select: {
       id: true,
       state: true,
+      scheduledAt: true,
       reelProjectId: true,
       reelVersionId: true,
       externalContainerId: true,
@@ -212,6 +246,23 @@ export async function advanceInstagramPublishingJob(
         organizationId,
         clientId,
         "PUBLISHING_PREFLIGHT_FAILED",
+      );
+      return;
+    }
+    if (isEarlyUnstartedPublication(job, now)) {
+      await prisma.publishingJob.updateMany({
+        where: { id: job.id, lockedAt: now, state: "DISPATCHED" },
+        data: { lockedAt: null, nextPollAt: job.scheduledAt },
+      });
+      return;
+    }
+    if (isStaleUnstartedPublication(job, now)) {
+      await attention(
+        job.id,
+        now,
+        organizationId,
+        clientId,
+        "SCHEDULE_START_WINDOW_EXPIRED",
       );
       return;
     }

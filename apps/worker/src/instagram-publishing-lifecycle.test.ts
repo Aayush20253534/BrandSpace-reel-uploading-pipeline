@@ -1,9 +1,43 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  isEarlyUnstartedPublication,
+  isStaleUnstartedPublication,
   nextContainerAction,
   nextPublishingAction,
 } from "./instagram-publishing-lifecycle.js";
+
+test("old unstarted schedules cannot begin a remote publish after the live switch is enabled", () => {
+  const now = new Date("2026-09-27T12:00:00.000Z");
+  const base = {
+    state: "DISPATCHED",
+    scheduledAt: new Date("2026-09-27T11:44:59.000Z"),
+    externalContainerId: null,
+    containerCreateIntentAt: null,
+  };
+  assert.equal(isStaleUnstartedPublication(base, now), true);
+  assert.equal(
+    isStaleUnstartedPublication(
+      { ...base, scheduledAt: new Date("2026-09-27T11:45:00.000Z") },
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    isStaleUnstartedPublication(
+      { ...base, externalContainerId: "existing-container" },
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    isEarlyUnstartedPublication(
+      { ...base, scheduledAt: new Date("2026-09-27T12:01:00.000Z") },
+      now,
+    ),
+    true,
+  );
+});
 
 test("replayed jobs never repeat an uncertain remote write", () => {
   const now = new Date();

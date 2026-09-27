@@ -20,7 +20,13 @@ the switch or make a live publish.
    job in PostgreSQL within the durable attempt budget, and releases its lock.
 2. The lifecycle claims one `DISPATCHED` or `PROCESSING` row by lock and due time.
 3. It checks client, account, active version, rendered artifact and exact-version
-   human approval again. It prepares temporary media from Google Drive.
+   human approval again. An unstarted dispatch more than 15 minutes after its
+   scheduled time moves to `NEEDS_ATTENTION`; enabling live publication cannot
+   silently post an old schedule. It prepares temporary media from Google Drive.
+   An owner/admin can run `npm run instagram:publish:reconcile -- cancel-stale
+<job-id> <actor-id>` after reviewing the job. That audited command cancels
+   only a stale job with no remote write intent and reopens the project for a
+   new schedule.
 4. It persists `containerCreateIntentAt` **before** the remote create call. A
    returned container ID is stored before any status poll.
 5. It polls no more than 60 times at 30-second intervals, with backoff for

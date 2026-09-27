@@ -73,6 +73,8 @@ migration and existing-data review.
   stable queue failure codes.
 - Full Drive scans preserve analysis state and technical metadata for unchanged
   files; detected source revisions reset asset readiness and probe dimensions.
+- Phase 17 stale-start guard prevents a delayed, untouched dispatch from
+  beginning a remote Instagram write after its scheduled window.
 
 ## Implemented, awaiting live acceptance
 

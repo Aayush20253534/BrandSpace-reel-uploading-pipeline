@@ -16,9 +16,12 @@ function required(value: string | undefined, name: string) {
 
 async function main() {
   const [action, jobId, mediaId, actorId] = process.argv.slice(2);
-  if (!jobId || !["status", "confirm-media"].includes(action ?? "")) {
+  if (
+    !jobId ||
+    !["status", "confirm-media", "cancel-stale"].includes(action ?? "")
+  ) {
     throw new Error(
-      "Usage: npm run instagram:publish:reconcile -- status <job-id> | confirm-media <job-id> <media-id> <owner-or-admin-user-id>",
+      "Usage: npm run instagram:publish:reconcile -- status <job-id> | confirm-media <job-id> <media-id> <owner-or-admin-user-id> | cancel-stale <job-id> <owner-or-admin-user-id>",
     );
   }
   const job = await prisma.publishingJob.findUnique({
@@ -26,6 +29,7 @@ async function main() {
     select: {
       id: true,
       state: true,
+      reelProjectId: true,
       reelVersionId: true,
       externalContainerId: true,
       externalMediaId: true,
@@ -37,6 +41,8 @@ async function main() {
       reelProject: {
         select: {
           clientId: true,
+          state: true,
+          activeVersion: true,
           client: { select: { organizationId: true } },
         },
       },
@@ -65,11 +71,10 @@ async function main() {
     );
     return;
   }
-  const confirmedMediaId = required(mediaId, "media-id");
-  const operatorId = required(actorId, "owner-or-admin-user-id");
-  if (!/^\d+$/.test(confirmedMediaId)) {
-    throw new Error("media-id must be numeric");
-  }
+  const operatorId = required(
+    action === "cancel-stale" ? mediaId : actorId,
+    "owner-or-admin-user-id",
+  );
   const organizationId = job.reelProject.client.organizationId;
   const member = await prisma.membership.findUnique({
     where: {
@@ -82,6 +87,87 @@ async function main() {
   });
   if (!member || !["OWNER", "ADMIN"].includes(member.role)) {
     throw new Error("Owner or admin membership required");
+  }
+  if (action === "cancel-stale") {
+    if (
+      job.state !== "NEEDS_ATTENTION" ||
+      job.lastErrorCode !== "SCHEDULE_START_WINDOW_EXPIRED" ||
+      job.externalContainerId !== null ||
+      job.externalMediaId !== null ||
+      job.containerCreateIntentAt !== null ||
+      job.publishIntentAt !== null ||
+      job.reelProject.state !== "SCHEDULED"
+    ) {
+      throw new Error("Only an untouched stale schedule can be cancelled");
+    }
+    await prisma.$transaction(async (tx) => {
+      const otherActive = await tx.publishingJob.findFirst({
+        where: {
+          reelProjectId: job.reelProjectId,
+          id: { not: job.id },
+          state: {
+            in: ["SCHEDULED", "DISPATCHED", "PROCESSING", "RETRY_WAIT"],
+          },
+        },
+        select: { id: true },
+      });
+      if (otherActive)
+        throw new Error("Another active publishing job exists for this reel");
+      const cancelled = await tx.publishingJob.updateMany({
+        where: {
+          id: job.id,
+          state: "NEEDS_ATTENTION",
+          lastErrorCode: "SCHEDULE_START_WINDOW_EXPIRED",
+          externalContainerId: null,
+          externalMediaId: null,
+          containerCreateIntentAt: null,
+          publishIntentAt: null,
+        },
+        data: {
+          state: "CANCELLED",
+          lastErrorMessage: "Stale schedule cancelled by operator",
+        },
+      });
+      if (cancelled.count !== 1)
+        throw new Error("Publishing job changed during cancellation");
+      const reopened = await tx.reelProject.updateMany({
+        where: {
+          id: job.reelProjectId,
+          state: "SCHEDULED",
+          activeVersion: job.reelProject.activeVersion,
+        },
+        data: { state: "APPROVED" },
+      });
+      if (reopened.count !== 1)
+        throw new Error("Reel project changed during cancellation");
+      await tx.auditEvent.create({
+        data: {
+          organizationId,
+          clientId: job.reelProject.clientId,
+          actorType: "USER",
+          actorId: operatorId,
+          action: "publishing.stale_schedule_cancelled",
+          entityType: "PublishingJob",
+          entityId: job.id,
+          metadata: {
+            reelProjectId: job.reelProjectId,
+            reelVersionId: job.reelVersionId,
+          },
+        },
+      });
+    });
+    process.stdout.write(
+      JSON.stringify({
+        jobId: job.id,
+        state: "CANCELLED",
+        projectState: "APPROVED",
+      }) + "\n",
+    );
+    return;
+  }
+  const confirmedMediaId = required(mediaId, "media-id");
+  if (!/^\d+$/.test(confirmedMediaId)) {
+    throw new Error("media-id must be numeric");
   }
   if (
     job.state !== "NEEDS_ATTENTION" ||
