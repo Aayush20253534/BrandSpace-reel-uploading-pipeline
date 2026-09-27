@@ -5,10 +5,12 @@ import {
   completeInstagramOAuth,
   hashInstagramOAuthState,
   INSTAGRAM_BUSINESS_LOGIN_SCOPES,
+  INSTAGRAM_INSIGHTS_SCOPE,
   InstagramProviderError,
   isInstagramReauthenticationError,
   isInstagramTransientProviderError,
   normalizeInstagramGraphVersion,
+  requestedInstagramScopes,
   refreshInstagramLongLivedToken,
   verifyInstagramAccessToken,
 } from "./instagram";
@@ -32,6 +34,18 @@ test("Instagram authorization URL carries exact redirect, state and minimal publ
   assert.deepEqual(url.searchParams.get("scope")?.split(","), [
     ...INSTAGRAM_BUSINESS_LOGIN_SCOPES,
   ]);
+});
+
+test("Instagram Login requests the insights permission only when explicitly enabled", () => {
+  const publishing = requestedInstagramScopes(false);
+  const insights = requestedInstagramScopes(true);
+  assert.deepEqual(publishing, [...INSTAGRAM_BUSINESS_LOGIN_SCOPES]);
+  assert.deepEqual(insights, [...publishing, INSTAGRAM_INSIGHTS_SCOPE]);
+  const url = buildInstagramAuthorizationUrl(
+    { ...config, requestedScopes: insights },
+    "state-value",
+  );
+  assert.deepEqual(url.searchParams.get("scope")?.split(","), insights);
 });
 
 test("OAuth state hashes are deterministic without persisting the browser nonce", () => {

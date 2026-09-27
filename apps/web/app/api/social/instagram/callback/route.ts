@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         userId: true,
         provider: true,
         redirectUri: true,
+        requestedScopes: true,
         expiresAt: true,
         consumedAt: true,
         resultCiphertext: true,
@@ -152,6 +153,7 @@ export async function GET(request: NextRequest) {
           appSecret: env.META_APP_SECRET!,
           redirectUri: attempt.redirectUri,
           graphVersion: env.META_GRAPH_VERSION,
+          requestedScopes: attempt.requestedScopes,
         },
         code!,
       );

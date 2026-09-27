@@ -81,6 +81,10 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  INSTAGRAM_REQUEST_INSIGHTS_SCOPE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   INSTAGRAM_INSIGHTS_ENABLED: z
     .enum(["true", "false"])
     .default("false")

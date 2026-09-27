@@ -75,6 +75,10 @@ migration and existing-data review.
   files; detected source revisions reset asset readiness and probe dimensions.
 - Phase 17 stale-start guard prevents a delayed, untouched dispatch from
   beginning a remote Instagram write after its scheduled window.
+- Official Meta screenshots supplied on 2026-09-27 confirmed the Instagram
+  Login publishing route/status contract and media insights permission. OAuth
+  now persists optional requested insights scope across its callback; the
+  collector sends the documented `day` period and checks that scope.
 
 ## Implemented, awaiting live acceptance
 
@@ -91,8 +95,11 @@ migration and existing-data review.
   intelligence stages; revised assets must be reprocessed before planning.
 - Provider retry/backoff policy and transactional AI bookkeeping hardening.
 - Subjective AI-assisted creative scoring.
-- Phase 13 live insights acceptance and Phase 14 outcome aggregation await verified Instagram Login insights metrics,
-  real snapshots and compatible collection windows.
+- Phase 13 live insights acceptance and Phase 14 outcome aggregation await a
+  Reel-specific metric table, real Instagram Login snapshots and compatible
+  collection windows. The Meta app setup and API reference screens give
+  conflicting guidance about Instagram Login insights, so staging must resolve
+  that before enabling collection.
 - Phase 15 MCP planning/render/QA/retry mutations and OAuth authorization for
   hosted ChatGPT clients; current bearer-token access supports scoped reads,
   draft creation, approval requests and guarded scheduling.

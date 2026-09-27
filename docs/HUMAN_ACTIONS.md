@@ -2,24 +2,27 @@
 
 ## Blocking
 
-### Provide access to the current Instagram Login publishing reference
+### Complete the Instagram Login contract evidence
 
-Why: Meta's public developer documentation currently returns HTTP 429 or is
-inaccessible from this workspace. Meta's public Postman Reels examples use the
-Facebook Login flow, `graph.facebook.com` and Page tokens. Forge uses Instagram
-Login and an Instagram user token, so copying those calls would risk an invalid
-or unsafe production implementation.
+Why: The supplied Meta screenshots confirm `graph.instagram.com`, Instagram
+Login publishing endpoints, `media_type=REELS`, `video_url`, the publishing
+permissions and container status values. They also confirm the media insights
+edge and `instagram_business_manage_insights`. The exact Reel metrics table,
+response shape, media limits, error cases and rate limits are still needed for
+full provider acceptance. The app setup screen suggests Facebook Login for
+insights while the API reference lists Business Login for Instagram; a staging
+test must resolve that difference.
 
 Exact location: Meta for Developers → **Instagram Platform → Instagram API with
 Instagram Login → Content Publishing**. In the app dashboard, confirm the
 Instagram product's API setup and current version under **My Apps → BrandSpace
 app → Instagram**.
 
-Needed information: an accessible official URL or exported page showing the
-Instagram Login base URL/version, Reel container create request, status request,
-`media_publish` request, required permission, media limits, errors and rate
-limits. Do not send access tokens or app secrets. This enables code and mock
-tests for Phases 11.5–11.7 and 13; it does not authorize a live publish.
+Needed information: an official export or screenshots of **Reels posts →
+Example Request / limitations**, **Instagram Media Insights → Metrics / query
+string parameters / sample post response**, and **Publish Content → Rate Limit**.
+Hide access tokens and app secrets. The screenshots already supplied confirm
+the route and permission checks; they do not authorize a live publish.
 
 ### Create a private temporary publication bucket and scoped credential
 
@@ -204,7 +207,9 @@ flow in BrandSpace.
 
 Exact field: `instagram_business_basic` and
 `instagram_business_content_publish` permissions, app access level and account
-authorization.
+authorization. For the separate insights test, request
+`instagram_business_manage_insights` and set web environment
+`INSTAGRAM_REQUEST_INSIGHTS_SCOPE=true` only after app access is available.
 
 Exact value/pattern: Advanced access for customer accounts as required by the
 Meta app's current review UI; authorize a dedicated test professional account
@@ -246,10 +251,13 @@ permission, endpoint, metric names, period and response shape for the app's
 pinned `META_GRAPH_VERSION`. Do not use a Facebook Page-token example.
 
 Exact field: Worker environment `INSTAGRAM_REEL_INSIGHTS_METRICS` and
-`INSTAGRAM_INSIGHTS_ENABLED`. Enter 1–12 comma-separated supported metric names
-after applying `20260927020000_analytics_collection` in staging; then set the
-enable flag to `true` for a test account. Keep the flag off in production until
-staging captures and the dashboard values are reviewed.
+`INSTAGRAM_INSIGHTS_ENABLED`; web environment
+`INSTAGRAM_REQUEST_INSIGHTS_SCOPE`. Enter 1–12 comma-separated Reel-supported
+`day` metric names after applying `20260927020000_analytics_collection` and
+`20260927030000_oauth_requested_scopes` in staging; reconnect the test account
+with the insights scope, then set the worker enable flag to `true` for that
+account. Keep the flag off in production until staging captures and dashboard
+values are reviewed.
 
 How to verify: A published test Reel creates two distinct, timestamped
 `ReelAnalyticsSnapshot` rows, each with its requested names and raw provider

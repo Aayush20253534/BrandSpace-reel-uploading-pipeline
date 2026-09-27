@@ -5,6 +5,7 @@ import { prisma } from "@forge/database";
 import {
   buildInstagramAuthorizationUrl,
   hashInstagramOAuthState,
+  requestedInstagramScopes,
 } from "@forge/social";
 import { requireRole } from "../../../../../lib/auth-session";
 
@@ -61,6 +62,9 @@ export async function GET(request: NextRequest) {
     const state = randomBytes(32).toString("base64url");
     const stateHash = hashInstagramOAuthState(state);
     const oauthRedirectUri = redirectUri();
+    const requestedScopes = requestedInstagramScopes(
+      env.INSTAGRAM_REQUEST_INSIGHTS_SCOPE,
+    );
     const now = new Date();
 
     await prisma.$transaction(async (tx) => {
@@ -77,6 +81,7 @@ export async function GET(request: NextRequest) {
           clientId: client.id,
           userId: session.user.id,
           provider: "INSTAGRAM",
+          requestedScopes,
           stateHash,
           redirectUri: oauthRedirectUri,
           expiresAt: new Date(now.getTime() + OAUTH_TTL_MS),
@@ -88,6 +93,7 @@ export async function GET(request: NextRequest) {
       {
         appId: env.META_APP_ID,
         redirectUri: oauthRedirectUri,
+        requestedScopes,
       },
       state,
     );

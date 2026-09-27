@@ -8,12 +8,18 @@ Instagram Login authorization flow.
 The implementation uses Instagram Login for professional accounts rather than the
 Facebook Page-linked flow.
 
-The requested scopes are deliberately minimal for the current publishing product:
+The default requested scopes are deliberately minimal for publishing:
 
 - `instagram_business_basic`
 - `instagram_business_content_publish`
 
 No messaging or comment permissions are requested.
+After Meta grants Instagram Login media insights access for the app, set
+`INSTAGRAM_REQUEST_INSIGHTS_SCOPE=true` on the web service and reconnect a test
+professional account. The OAuth attempt stores its exact requested scopes so
+a config change during the redirect cannot alter what the callback records.
+The optional third scope is `instagram_business_manage_insights`. The stored
+list records what Forge requested; it does not prove Meta granted every scope.
 
 The Graph API version is pinned through `META_GRAPH_VERSION`; Phase 11.2 defaults to
 `v26.0`.

@@ -531,6 +531,7 @@ model SocialOAuthAttempt {
   clientId    String
   userId      String
   provider    SocialPlatform @default(INSTAGRAM)
+  requestedScopes String[] @default(["instagram_business_basic", "instagram_business_content_publish"])
   stateHash   String         @unique
   redirectUri String
   expiresAt   DateTime

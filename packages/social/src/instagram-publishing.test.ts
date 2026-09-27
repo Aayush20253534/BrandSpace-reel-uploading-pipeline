@@ -127,6 +127,7 @@ test("insights reader forwards only an explicit metric allowlist and preserves p
     /^https:\/\/graph\.instagram\.com\/v26\.0\/300\/insights\?/,
   );
   assert.equal(new URL(url).searchParams.get("metric"), "views,reach");
+  assert.equal(new URL(url).searchParams.get("period"), "day");
   await assert.rejects(
     () =>
       client.getMediaInsights({

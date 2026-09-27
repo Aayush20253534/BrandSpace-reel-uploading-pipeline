@@ -4,12 +4,21 @@ export const INSTAGRAM_BUSINESS_LOGIN_SCOPES = [
   "instagram_business_basic",
   "instagram_business_content_publish",
 ] as const;
+export const INSTAGRAM_INSIGHTS_SCOPE =
+  "instagram_business_manage_insights" as const;
+
+export function requestedInstagramScopes(includeInsights: boolean) {
+  return includeInsights
+    ? [...INSTAGRAM_BUSINESS_LOGIN_SCOPES, INSTAGRAM_INSIGHTS_SCOPE]
+    : [...INSTAGRAM_BUSINESS_LOGIN_SCOPES];
+}
 
 export interface InstagramOAuthConfig {
   appId: string;
   appSecret: string;
   redirectUri: string;
   graphVersion: string;
+  requestedScopes?: readonly string[];
 }
 
 export interface InstagramOAuthResult {
@@ -140,7 +149,10 @@ export function hashInstagramOAuthState(state: string) {
 }
 
 export function buildInstagramAuthorizationUrl(
-  config: Pick<InstagramOAuthConfig, "appId" | "redirectUri">,
+  config: Pick<
+    InstagramOAuthConfig,
+    "appId" | "redirectUri" | "requestedScopes"
+  >,
   state: string,
 ) {
   if (!config.appId.trim()) throw new Error("META_APP_ID is required");
@@ -152,7 +164,17 @@ export function buildInstagramAuthorizationUrl(
   url.searchParams.set("client_id", config.appId.trim());
   url.searchParams.set("redirect_uri", config.redirectUri.trim());
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", INSTAGRAM_BUSINESS_LOGIN_SCOPES.join(","));
+  const scopes = config.requestedScopes ?? requestedInstagramScopes(false);
+  if (
+    scopes.length < 2 ||
+    scopes.length > 3 ||
+    scopes[0] !== INSTAGRAM_BUSINESS_LOGIN_SCOPES[0] ||
+    scopes[1] !== INSTAGRAM_BUSINESS_LOGIN_SCOPES[1] ||
+    (scopes[2] !== undefined && scopes[2] !== INSTAGRAM_INSIGHTS_SCOPE)
+  ) {
+    throw new Error("Invalid Instagram Login requested scopes");
+  }
+  url.searchParams.set("scope", scopes.join(","));
   url.searchParams.set("state", state);
   url.searchParams.set("force_reauth", "true");
   return url;
@@ -396,7 +418,7 @@ export async function completeInstagramOAuth(
     providerAccountId: profile.userId,
     username: profile.username,
     displayName: profile.name,
-    scopes: [...INSTAGRAM_BUSINESS_LOGIN_SCOPES],
+    scopes: [...(config.requestedScopes ?? requestedInstagramScopes(false))],
     tokenType: longLived.tokenType,
     expiresInSeconds: longLived.expiresIn,
   };

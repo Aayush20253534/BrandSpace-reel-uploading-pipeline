@@ -171,6 +171,7 @@ export async function captureInstagramInsights(
     job.socialAccount.status !== "CONNECTED" ||
     !job.socialAccount.accessTokenCiphertext ||
     !job.socialAccount.scopes.includes("instagram_business_basic") ||
+    !job.socialAccount.scopes.includes("instagram_business_manage_insights") ||
     (job.socialAccount.tokenExpiresAt !== null &&
       job.socialAccount.tokenExpiresAt <= now) ||
     !env.SOCIAL_TOKEN_ENCRYPTION_KEY
@@ -210,6 +211,7 @@ export async function captureInstagramInsights(
               schemaVersion: "instagram-insights-v1",
               graphVersion: env.META_GRAPH_VERSION,
               requestedMetrics: metrics,
+              period: "day",
               providerData,
               collectedAt: collectedAt.toISOString(),
             },

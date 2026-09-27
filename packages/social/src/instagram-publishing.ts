@@ -194,7 +194,10 @@ export class InstagramPublishingClient {
     ) {
       throw new InstagramPublishingError("media.insights", "PERMANENT", null);
     }
-    const query = new URLSearchParams({ metric: input.metrics.join(",") });
+    const query = new URLSearchParams({
+      metric: input.metrics.join(","),
+      period: "day",
+    });
     const result = await this.request(
       "media.insights",
       `${id}/insights?${query}`,
