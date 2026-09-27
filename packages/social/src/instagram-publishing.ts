@@ -179,4 +179,30 @@ export class InstagramPublishingClient {
     }
     return result;
   }
+
+  async getMediaInsights(input: {
+    mediaId: string;
+    accessToken: string;
+    metrics: string[];
+  }) {
+    const id = requireId(input.mediaId, "media.insights");
+    if (
+      input.metrics.length === 0 ||
+      input.metrics.length > 12 ||
+      new Set(input.metrics).size !== input.metrics.length ||
+      input.metrics.some((metric) => !/^[a-z][a-z0-9_]{0,63}$/.test(metric))
+    ) {
+      throw new InstagramPublishingError("media.insights", "PERMANENT", null);
+    }
+    const query = new URLSearchParams({ metric: input.metrics.join(",") });
+    const result = await this.request(
+      "media.insights",
+      `${id}/insights?${query}`,
+      input.accessToken,
+    );
+    if (!Array.isArray(result.data)) {
+      throw new InstagramPublishingError("media.insights", "PERMANENT", 200);
+    }
+    return result.data;
+  }
 }

@@ -105,3 +105,35 @@ test("ambiguous transport failure is transient and never retried inside adapter"
   );
   assert.equal(calls, 1);
 });
+
+test("insights reader forwards only an explicit metric allowlist and preserves provider data", async () => {
+  let url = "";
+  const data = [{ name: "views", values: [{ value: 12 }] }];
+  const fetchMock: typeof fetch = async (input) => {
+    url = String(input);
+    return Response.json({ data });
+  };
+  const client = new InstagramPublishingClient("v26.0", fetchMock);
+  assert.deepEqual(
+    await client.getMediaInsights({
+      mediaId: "300",
+      accessToken: "token",
+      metrics: ["views", "reach"],
+    }),
+    data,
+  );
+  assert.match(
+    url,
+    /^https:\/\/graph\.instagram\.com\/v26\.0\/300\/insights\?/,
+  );
+  assert.equal(new URL(url).searchParams.get("metric"), "views,reach");
+  await assert.rejects(
+    () =>
+      client.getMediaInsights({
+        mediaId: "300",
+        accessToken: "token",
+        metrics: ["views", "not-allowed!"],
+      }),
+    InstagramPublishingError,
+  );
+});
