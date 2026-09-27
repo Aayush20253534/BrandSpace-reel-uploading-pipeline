@@ -57,6 +57,8 @@ migration and existing-data review.
 - Phase 11.5–11.6 code path for Instagram Login container creation, bounded
   polling, publish intent quarantine and remote-media verification, disabled
   by default until official contract and staging acceptance.
+- Phase 15 MCP request-only approval mutation, scoped to one client and the
+  QA-passed active version with transaction-bound idempotency and audit.
 
 ## Implemented, awaiting live acceptance
 
@@ -74,7 +76,7 @@ migration and existing-data review.
 - Subjective AI-assisted creative scoring.
 - Phase 14 outcome aggregation awaits verified Instagram Login insights metrics,
   real snapshots and compatible collection windows.
-- Phase 15 MCP mutations beyond draft creation and OAuth authorization for
+- Phase 15 MCP mutations beyond draft creation and approval requests, and OAuth authorization for
   hosted ChatGPT clients; current bearer-token access supports scoped reads
   and draft-only creation.
 

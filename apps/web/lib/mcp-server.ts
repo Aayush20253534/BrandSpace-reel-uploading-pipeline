@@ -2,7 +2,11 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { prisma, type MembershipRole } from "@forge/database";
 import * as z from "zod/v4";
 import type { AgentContext } from "./mcp-auth";
-import { AgentMutationError, createAgentReelProject } from "./mcp-mutations";
+import {
+  AgentMutationError,
+  createAgentReelProject,
+  requestAgentReelApproval,
+} from "./mcp-mutations";
 
 const page = z.number().int().min(1).max(100).default(1);
 const limit = z.number().int().min(1).max(50).default(20);
@@ -102,6 +106,41 @@ export function createForgeMcpServer(context: AgentContext) {
                   error instanceof AgentMutationError
                     ? error.code
                     : "Unable to create reel project",
+              },
+            ],
+            isError: true,
+          };
+        }
+      },
+    );
+    server.registerTool(
+      "request_reel_approval",
+      {
+        description:
+          "Request human review of the active reel version only after technical and creative QA pass. This does not approve, schedule, or publish.",
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: true,
+        },
+        inputSchema: z.object({
+          clientId,
+          reelProjectId: z.string().min(1).max(128),
+          idempotencyKey: z.string().uuid(),
+        }),
+      },
+      async (input) => {
+        try {
+          return result(await requestAgentReelApproval(context, input));
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  error instanceof AgentMutationError
+                    ? error.code
+                    : "Unable to request reel approval",
               },
             ],
             isError: true,

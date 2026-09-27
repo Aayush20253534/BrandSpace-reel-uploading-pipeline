@@ -39,3 +39,10 @@ mutation tools with narrow schemas and audit events. Until those tools exist,
 an agent can only propose those actions. A real Instagram publish still
 requires the exact version's approval and separate explicit operator
 authorization for the real post. No prompt should bypass those gates.
+
+After an active reel version passes both technical and creative QA, an editor
+with a client-scoped write credential can call `request_reel_approval` with a
+fresh UUID idempotency key. This records a pending human review for that exact
+version. It cannot approve or publish. For a client using automatic content
+approval, the request reopens an unscheduled approved project for human review;
+the Instagram worker still requires an explicit approved decision.

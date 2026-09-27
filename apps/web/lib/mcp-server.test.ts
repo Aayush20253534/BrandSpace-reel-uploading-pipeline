@@ -100,3 +100,21 @@ test("draft creation requires a client-scoped write credential and editor role",
     ),
   );
 });
+
+test("approval requests require the same client-scoped write boundary", async () => {
+  assert.ok(
+    (await toolNames("EDITOR", ["read", "write"], "client-a")).includes(
+      "request_reel_approval",
+    ),
+  );
+  assert.ok(
+    !(await toolNames("EDITOR", ["read"], "client-a")).includes(
+      "request_reel_approval",
+    ),
+  );
+  assert.ok(
+    !(await toolNames("REVIEWER", ["read", "write"], "client-a")).includes(
+      "request_reel_approval",
+    ),
+  );
+});
